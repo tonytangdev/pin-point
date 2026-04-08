@@ -22,14 +22,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@effect/platform": "^0.96.0",
+    "@effect/platform-node": "^0.106.0",
+    "@effect/sql": "^0.51.0",
+    "@effect/sql-pg": "^0.52.1",
     "@hono/node-server": "^1.19.13",
-    "@hono/zod-validator": "^0.7.6",
-    "better-sqlite3": "^12.8.0",
-    "hono": "^4.12.12",
-    "zod": "^4.3.6"
+    "effect": "^3.21.0",
+    "hono": "^4.12.12"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
+    "@effect/vitest": "^0.29.0",
     "@types/node": "^25.5.2",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
