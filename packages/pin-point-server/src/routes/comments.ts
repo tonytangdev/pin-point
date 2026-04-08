@@ -1,33 +1,70 @@
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { PinCommentSchema } from "../types";
-import type { CommentService } from "../services/comment-service";
+import { Hono } from "hono"
+import { Effect, Layer, Schema } from "effect"
+import { CommentService } from "../services/comment-service.js"
+import { CreateCommentSchema, type PinComment } from "../models/comment.js"
 
-export function commentRoutes(service: CommentService) {
-  const router = new Hono();
+export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
+  const app = new Hono()
 
-  router.post("/", zValidator("json", PinCommentSchema), async (c) => {
-    const comment = c.req.valid("json");
-    const created = await service.create(comment);
-    return c.json(created, 201);
-  });
+  const runEffect = <A>(effect: Effect.Effect<A, never, CommentService>) =>
+    Effect.runPromise(effect.pipe(Effect.provide(layer)))
 
-  router.get("/", async (c) => {
-    const url = c.req.query("url");
-    const comments = url
-      ? await service.findByUrl(url)
-      : await service.findAll();
-    return c.json(comments);
-  });
-
-  router.delete("/:id", async (c) => {
-    const id = c.req.param("id");
-    const deleted = await service.delete(id);
-    if (!deleted) {
-      return c.json({ error: "Not found" }, 404);
+  app.post("/comments", async (c) => {
+    const body = await c.req.json()
+    const decoded = Schema.decodeUnknownEither(CreateCommentSchema)(body)
+    if (decoded._tag === "Left") {
+      return c.json({ error: "Invalid request body" }, 400)
     }
-    return c.body(null, 204);
-  });
 
-  return router;
+    const result = await runEffect(
+      Effect.gen(function* () {
+        const service = yield* CommentService
+        return yield* service.create(decoded.right)
+      }).pipe(
+        Effect.catchTag("DatabaseError", () =>
+          Effect.succeed({ _error: true as const })
+        ),
+      ),
+    )
+    if ("_error" in result) return c.json({ error: "Internal server error" }, 500)
+    return c.json(result, 201)
+  })
+
+  app.get("/comments", async (c) => {
+    const url = c.req.query("url")
+    const result = await runEffect(
+      Effect.gen(function* () {
+        const service = yield* CommentService
+        return url ? yield* service.findByUrl(url) : yield* service.findAll()
+      }).pipe(
+        Effect.catchTag("DatabaseError", () =>
+          Effect.succeed([] as PinComment[])
+        ),
+      ),
+    )
+    return c.json(result)
+  })
+
+  app.delete("/comments/:id", async (c) => {
+    const id = c.req.param("id")
+    const result = await runEffect(
+      Effect.gen(function* () {
+        const service = yield* CommentService
+        yield* service.delete(id)
+        return { _tag: "ok" as const }
+      }).pipe(
+        Effect.catchTag("CommentNotFound", () =>
+          Effect.succeed({ _tag: "notFound" as const })
+        ),
+        Effect.catchTag("DatabaseError", () =>
+          Effect.succeed({ _tag: "dbError" as const })
+        ),
+      ),
+    )
+    if (result._tag === "notFound") return c.json({ error: "Not found" }, 404)
+    if (result._tag === "dbError") return c.json({ error: "Internal server error" }, 500)
+    return c.body(null, 204)
+  })
+
+  return app
 }
