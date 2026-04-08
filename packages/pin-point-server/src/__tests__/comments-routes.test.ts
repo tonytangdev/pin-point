@@ -77,6 +77,13 @@ describe("Comment routes", () => {
     expect(body).toHaveLength(0);
   });
 
+  it("DELETE /comments/:id returns 404 for nonexistent id", async () => {
+    const res = await app.request("/comments/nonexistent", {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("POST /comments returns 400 for invalid body", async () => {
     const res = await app.request("/comments", {
       method: "POST",

@@ -22,7 +22,10 @@ export function commentRoutes(service: CommentService) {
 
   router.delete("/:id", async (c) => {
     const id = c.req.param("id");
-    await service.delete(id);
+    const deleted = await service.delete(id);
+    if (!deleted) {
+      return c.json({ error: "Not found" }, 404);
+    }
     return c.body(null, 204);
   });
 

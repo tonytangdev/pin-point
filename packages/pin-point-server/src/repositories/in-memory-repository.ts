@@ -17,7 +17,9 @@ export class InMemoryCommentRepository implements CommentRepository {
     return [...this.comments];
   }
 
-  async deleteById(id: string): Promise<void> {
+  async deleteById(id: string): Promise<boolean> {
+    const len = this.comments.length;
     this.comments = this.comments.filter((c) => c.id !== id);
+    return this.comments.length < len;
   }
 }

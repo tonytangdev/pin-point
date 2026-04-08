@@ -16,5 +16,10 @@ export function createApp({ repository, corsOrigin = "*" }: AppOptions) {
   app.use("*", cors({ origin: corsOrigin }));
   app.route("/comments", commentRoutes(service));
 
+  app.onError((err, c) => {
+    console.error(err);
+    return c.json({ error: "Internal server error" }, 500);
+  });
+
   return app;
 }

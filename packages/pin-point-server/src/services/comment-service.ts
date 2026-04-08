@@ -16,7 +16,7 @@ export class CommentService {
     return this.repository.findByUrl(url);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string): Promise<boolean> {
     return this.repository.deleteById(id);
   }
 }

@@ -78,8 +78,9 @@ export class SqliteCommentRepository implements CommentRepository {
     return rows.map(rowToComment);
   }
 
-  async deleteById(id: string): Promise<void> {
-    this.db.prepare("DELETE FROM comments WHERE id = ?").run(id);
+  async deleteById(id: string): Promise<boolean> {
+    const result = this.db.prepare("DELETE FROM comments WHERE id = ?").run(id);
+    return result.changes > 0;
   }
 
   close() {
