@@ -1,17 +1,9 @@
-export type Config = {
-  port: number;
-  host: string;
-  dbAdapter: "sqlite";
-  databaseUrl: string;
-  corsOrigin: string;
-};
+import { Config } from "effect"
 
-export function loadConfig(): Config {
-  return {
-    port: Number(process.env.PORT ?? 3000),
-    host: process.env.HOST ?? "0.0.0.0",
-    dbAdapter: "sqlite",
-    databaseUrl: process.env.DATABASE_URL ?? "./pin-point.db",
-    corsOrigin: process.env.CORS_ORIGIN ?? "*",
-  };
-}
+export const AppConfig = Config.all({
+  port: Config.number("PORT").pipe(Config.withDefault(3000)),
+  host: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
+  corsOrigin: Config.string("CORS_ORIGIN").pipe(Config.withDefault("*")),
+})
+
+export type AppConfig = Config.Config.Success<typeof AppConfig>
