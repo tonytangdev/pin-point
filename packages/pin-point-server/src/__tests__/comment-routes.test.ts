@@ -114,4 +114,48 @@ describe("Comment Routes", () => {
     const res = await app.request("/comments/nope", { method: "DELETE" })
     expect(res.status).toBe(404)
   })
+
+  it("PATCH /comments/:id updates content and returns 200", async () => {
+    stored.push({
+      id: "upd-me", url: "https://example.com", content: "Original",
+      anchor: { selector: "#a", xPercent: 0, yPercent: 0 },
+      viewport: { width: 1024 }, createdAt: "2026-01-01T00:00:00.000Z",
+    })
+    const res = await app.request("/comments/upd-me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Updated" }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.content).toBe("Updated")
+    expect(body.id).toBe("upd-me")
+  })
+
+  it("PATCH /comments/:id returns 404 for unknown id", async () => {
+    const res = await app.request("/comments/nope", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Updated" }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it("PATCH /comments/:id returns 400 for invalid body", async () => {
+    const res = await app.request("/comments/upd-me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it("PATCH /comments/:id returns 400 for empty content", async () => {
+    const res = await app.request("/comments/upd-me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "" }),
+    })
+    expect(res.status).toBe(400)
+  })
 })

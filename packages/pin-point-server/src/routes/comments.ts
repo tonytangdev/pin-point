@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { Effect, Layer, Schema } from "effect"
 import { CommentService } from "../services/comment-service.js"
-import { CreateCommentSchema, type PinComment } from "../models/comment.js"
+import { CreateCommentSchema, UpdateCommentSchema, type PinComment } from "../models/comment.js"
 
 export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
   const app = new Hono()
@@ -64,6 +64,32 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
     if (result._tag === "notFound") return c.json({ error: "Not found" }, 404)
     if (result._tag === "dbError") return c.json({ error: "Internal server error" }, 500)
     return c.body(null, 204)
+  })
+
+  app.patch("/comments/:id", async (c) => {
+    const id = c.req.param("id")
+    const body = await c.req.json()
+    const decoded = Schema.decodeUnknownEither(UpdateCommentSchema)(body)
+    if (decoded._tag === "Left") {
+      return c.json({ error: "Invalid request body" }, 400)
+    }
+
+    const result = await runEffect(
+      Effect.gen(function* () {
+        const service = yield* CommentService
+        return yield* service.update(id, decoded.right.content)
+      }).pipe(
+        Effect.catchTag("CommentNotFound", () =>
+          Effect.succeed({ _tag: "notFound" as const })
+        ),
+        Effect.catchTag("DatabaseError", () =>
+          Effect.succeed({ _tag: "dbError" as const })
+        ),
+      ),
+    )
+    if ("_tag" in result && result._tag === "notFound") return c.json({ error: "Not found" }, 404)
+    if ("_tag" in result && result._tag === "dbError") return c.json({ error: "Internal server error" }, 500)
+    return c.json(result, 200)
   })
 
   return app
