@@ -1,4 +1,8 @@
 import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
+
+afterEach(cleanup);
 
 // jsdom returns all-zero rects; provide a stable non-zero default so
 // percentage calculations in resolveAnchor tests produce meaningful values.
