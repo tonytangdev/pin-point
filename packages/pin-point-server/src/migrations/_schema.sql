@@ -1,4 +1,4 @@
-\restrict OQwDFbRkIkl4PMxHXVhPPekdIovqP7vbanXD6BZFbTV7YTvVBpbDdF5PHtXjuh0
+\restrict 4HZnLc71iXA6HdhYh0qpIwlHE67dldZZfNZJ7qiPbXBlNwUsqJ0Oz8ABgUqSEiP
 
 CREATE TABLE public.comments (
     id text NOT NULL,
@@ -23,10 +23,10 @@ ALTER TABLE ONLY public.effect_sql_migrations
 
 CREATE INDEX idx_comments_url ON public.comments USING btree (url);
 
-\unrestrict OQwDFbRkIkl4PMxHXVhPPekdIovqP7vbanXD6BZFbTV7YTvVBpbDdF5PHtXjuh0
+\unrestrict 4HZnLc71iXA6HdhYh0qpIwlHE67dldZZfNZJ7qiPbXBlNwUsqJ0Oz8ABgUqSEiP
 
-\restrict CaqD2xIiBUXVZJgmxMY0EzaKYdPkpaEJA5ZonT2iBmK2D1Kj1BHypeFhmFT3cUT
+\restrict cXBUHkDVgdXr4EsEFjLt5w9CHuWSvaSuU8RcFno6hIYoU71ARyHohJrJyckPHxo
 
-INSERT INTO public.effect_sql_migrations (migration_id, created_at, name) VALUES (1, '2026-04-08 21:46:48.00383+00', 'create_comments');
+INSERT INTO public.effect_sql_migrations (migration_id, created_at, name) VALUES (1, '2026-04-08 21:48:02.566372+00', 'create_comments');
 
-\unrestrict CaqD2xIiBUXVZJgmxMY0EzaKYdPkpaEJA5ZonT2iBmK2D1Kj1BHypeFhmFT3cUT
+\unrestrict cXBUHkDVgdXr4EsEFjLt5w9CHuWSvaSuU8RcFno6hIYoU71ARyHohJrJyckPHxo
