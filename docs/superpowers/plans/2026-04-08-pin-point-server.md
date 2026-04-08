@@ -74,77 +74,39 @@ git mv tsup.config.ts packages/pin-point/tsup.config.ts
 git mv vitest.config.ts packages/pin-point/vitest.config.ts
 ```
 
-- [ ] **Step 3: Split package.json**
+- [ ] **Step 3: Create child package.json via CLI**
 
-Create `packages/pin-point/package.json` with all the lib-specific fields from the current root `package.json`:
-
-```json
-{
-  "name": "pin-point",
-  "version": "0.1.0",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": { "types": "./dist/index.d.mts", "default": "./dist/index.mjs" },
-      "require": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
-    },
-    "./styles.css": "./dist/styles/pin-point.css"
-  },
-  "files": ["dist"],
-  "scripts": {
-    "build": "tsup",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "tsc --noEmit"
-  },
-  "peerDependencies": {
-    "react": ">=18",
-    "react-dom": ">=18"
-  },
-  "devDependencies": {
-    "@testing-library/dom": "^10.5.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
-    "@types/react": "^19.1.4",
-    "@types/react-dom": "^19.1.5",
-    "@vitejs/plugin-react": "^4.5.2",
-    "jsdom": "^26.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tsup": "^8.5.1",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.1"
-  }
-}
+```bash
+cd packages/pin-point
+pnpm init
 ```
 
-Note: Check exact versions from current `package.json` when implementing. The above are placeholders — use whatever versions are currently in the lock file.
+Then update the generated `package.json`:
+- Set `name` to `"pin-point"`, `version` to `"0.1.0"`
+- Copy `main`, `module`, `types`, `exports`, `files`, `scripts`, `peerDependencies` fields from the current root `package.json`
+- Install devDependencies via CLI (read exact package names from root `package.json` devDependencies):
 
-Update root `package.json` to be the workspace root:
-
-```json
-{
-  "name": "pin-point-monorepo",
-  "private": true,
-  "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "lint": "pnpm -r lint"
-  }
-}
+```bash
+cd packages/pin-point
+pnpm add -D @testing-library/dom @testing-library/jest-dom @testing-library/react @types/react @types/react-dom @vitejs/plugin-react jsdom react react-dom tsup typescript vite vitest
 ```
 
-- [ ] **Step 4: Remove package-lock.json and install with pnpm**
+- [ ] **Step 4: Update root package.json to workspace root**
+
+Strip all lib-specific fields from root `package.json` and set:
+- `name`: `"pin-point-monorepo"`
+- `private`: `true`
+- `scripts`: `{ "build": "pnpm -r build", "test": "pnpm -r test", "lint": "pnpm -r lint" }`
+- Remove `main`, `module`, `types`, `exports`, `files`, `peerDependencies`, `devDependencies`
+
+- [ ] **Step 5: Remove package-lock.json and install with pnpm**
 
 ```bash
 rm package-lock.json
 pnpm install
 ```
 
-- [ ] **Step 5: Verify frontend lib still works**
+- [ ] **Step 6: Verify frontend lib still works**
 
 ```bash
 cd packages/pin-point
@@ -155,11 +117,11 @@ pnpm lint
 
 All existing tests must pass and build must produce the same output in `packages/pin-point/dist/`.
 
-- [ ] **Step 6: Update .gitignore**
+- [ ] **Step 7: Update .gitignore**
 
 Add `*.db` to `.gitignore` (for SQLite files created during dev/testing).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -176,40 +138,29 @@ git commit -m "refactor: migrate to pnpm workspaces monorepo"
 - Create: `packages/pin-point-server/tsup.config.ts`
 - Create: `packages/pin-point-server/vitest.config.ts`
 
-- [ ] **Step 1: Create package.json**
+- [ ] **Step 1: Init package and install dependencies via CLI**
 
-```json
-{
-  "name": "pin-point-server",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "bin": {
-    "pin-point-server": "./dist/index.js"
-  },
-  "files": ["dist"],
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsx src/index.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "tsc --noEmit"
-  },
-  "dependencies": {
-    "hono": "^4.7.0",
-    "zod": "^3.24.0",
-    "@hono/zod-validator": "^0.5.0",
-    "better-sqlite3": "^11.9.0"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.0",
-    "tsup": "^8.5.1",
-    "tsx": "^4.19.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.1"
-  }
-}
+```bash
+mkdir -p packages/pin-point-server
+cd packages/pin-point-server
+pnpm init
+```
+
+Then update the generated `package.json`:
+- Set `name` to `"pin-point-server"`, `version` to `"0.1.0"`, `type` to `"module"`
+- Add `main`, `types`, `bin`, `files`, and `scripts` fields:
+  - `main`: `"./dist/index.js"`
+  - `types`: `"./dist/index.d.ts"`
+  - `bin`: `{ "pin-point-server": "./dist/index.js" }`
+  - `files`: `["dist"]`
+  - `scripts`: `{ "build": "tsup", "dev": "tsx src/index.ts", "test": "vitest run", "test:watch": "vitest", "lint": "tsc --noEmit" }`
+
+Install dependencies via CLI:
+
+```bash
+cd packages/pin-point-server
+pnpm add hono zod @hono/zod-validator better-sqlite3
+pnpm add -D @types/better-sqlite3 tsup tsx typescript vitest
 ```
 
 - [ ] **Step 2: Create tsconfig.json**
@@ -263,14 +214,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 5: Install dependencies**
-
-```bash
-cd packages/pin-point-server
-pnpm install
-```
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add packages/pin-point-server/package.json packages/pin-point-server/tsconfig.json packages/pin-point-server/tsup.config.ts packages/pin-point-server/vitest.config.ts pnpm-lock.yaml
