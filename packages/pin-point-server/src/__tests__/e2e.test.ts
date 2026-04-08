@@ -58,7 +58,7 @@ describe("E2E", () => {
     )
   })
 
-  it("full comment lifecycle: create, list, filter, delete", async () => {
+  it("full comment lifecycle: create, list, filter, update, delete", async () => {
     const createRes1 = await app.request("/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,6 +94,25 @@ describe("E2E", () => {
     const filtered = await filterRes.json()
     expect(filtered.length).toBe(1)
     expect(filtered[0].content).toBe("Comment A")
+
+    // Update
+    const patchRes = await app.request(`/comments/${comment1.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Comment A Updated" }),
+    })
+    expect(patchRes.status).toBe(200)
+    const patched = await patchRes.json()
+    expect(patched.content).toBe("Comment A Updated")
+    expect(patched.id).toBe(comment1.id)
+
+    // Update non-existent
+    const patchNotFound = await app.request("/comments/non-existent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "nope" }),
+    })
+    expect(patchNotFound.status).toBe(404)
 
     const deleteRes = await app.request(`/comments/${comment1.id}`, {
       method: "DELETE",
