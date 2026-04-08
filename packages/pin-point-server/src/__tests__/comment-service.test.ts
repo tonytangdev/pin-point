@@ -79,4 +79,22 @@ describe("CommentService", () => {
       assert((result as CommentNotFound).id === "unknown")
     }).pipe(Effect.provide(TestLive))
   )
+
+  it.effect("update returns updated comment", () =>
+    Effect.gen(function* () {
+      const service = yield* CommentService
+      const result = yield* service.update("test-id", "New content")
+      assert(result.content === "New content")
+      assert(result.id === "test-id")
+    }).pipe(Effect.provide(TestLive))
+  )
+
+  it.effect("update fails with CommentNotFound for unknown id", () =>
+    Effect.gen(function* () {
+      const service = yield* CommentService
+      const result = yield* service.update("unknown", "New content").pipe(Effect.flip)
+      assert(result._tag === "CommentNotFound")
+      assert((result as CommentNotFound).id === "unknown")
+    }).pipe(Effect.provide(TestLive))
+  )
 })

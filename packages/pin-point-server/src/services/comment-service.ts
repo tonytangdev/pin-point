@@ -10,6 +10,7 @@ export class CommentService extends Context.Tag("CommentService")<
     readonly findAll: () => Effect.Effect<PinComment[], DatabaseError>
     readonly findByUrl: (url: string) => Effect.Effect<PinComment[], DatabaseError>
     readonly delete: (id: string) => Effect.Effect<void, CommentNotFound | DatabaseError>
+    readonly update: (id: string, content: string) => Effect.Effect<PinComment, CommentNotFound | DatabaseError>
   }
 >() {}
 
@@ -37,6 +38,13 @@ export const CommentServiceLive = Layer.effect(
         Effect.gen(function* () {
           const deleted = yield* repo.deleteById(id)
           if (!deleted) yield* Effect.fail(new CommentNotFound({ id }))
+        }),
+
+      update: (id: string, content: string) =>
+        Effect.gen(function* () {
+          const updated = yield* repo.updateById(id, content)
+          if (!updated) return yield* Effect.fail(new CommentNotFound({ id }))
+          return updated
         }),
     }
   }),
