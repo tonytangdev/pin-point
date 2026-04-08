@@ -43,8 +43,8 @@ export const CommentServiceLive = Layer.effect(
       update: (id: string, content: string) =>
         Effect.gen(function* () {
           const updated = yield* repo.updateById(id, content)
-          if (!updated) return yield* Effect.fail(new CommentNotFound({ id }))
-          return updated
+          if (!updated) yield* Effect.fail(new CommentNotFound({ id }))
+          return updated!
         }),
     }
   }),

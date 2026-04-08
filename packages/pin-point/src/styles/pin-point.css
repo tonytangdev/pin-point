@@ -70,7 +70,6 @@
 }
 
 [data-pin-point] .pp-popover-meta {
-  margin-top: 10px;
   font-size: 11px;
   color: #999;
   position: relative;
@@ -178,46 +177,91 @@
   50% { box-shadow: 0 2px 16px rgba(108, 92, 231, 0.7); }
 }
 
-[data-pin-point] .pp-popover-toolbar {
+/* Footer: meta + action buttons on same row */
+[data-pin-point] .pp-popover-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 4px;
-  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
   position: relative;
 }
 
-[data-pin-point] .pp-icon-btn {
+[data-pin-point] .pp-popover-actions-row {
+  display: flex;
+  gap: 2px;
+}
+
+[data-pin-point] .pp-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
-  border: 1px solid #eee;
-  border-radius: 4px;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  padding: 2px 6px;
-  line-height: 1;
-  color: #666;
+  color: #999;
+  transition: all 0.15s ease;
 }
 
-[data-pin-point] .pp-icon-btn:hover {
-  background: #f5f5f5;
+[data-pin-point] .pp-action-btn:hover {
+  background: #f0eeff;
+  color: #6C5CE7;
 }
 
-[data-pin-point] .pp-icon-btn--danger:hover {
+[data-pin-point] .pp-action-btn--danger:hover {
   background: #fef2f2;
-  color: #e74c3c;
+  color: #dc3545;
 }
 
-[data-pin-point] .pp-confirm {
-  font-size: 12px;
-  color: #666;
+/* Delete confirmation overlay */
+[data-pin-point] .pp-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  position: relative;
+}
+
+[data-pin-point] .pp-delete-confirm-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc3545;
+}
+
+[data-pin-point] .pp-delete-confirm-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-[data-pin-point] .pp-confirm-btn {
-  background: none;
+[data-pin-point] .pp-delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+[data-pin-point] .pp-delete-confirm-actions .pp-btn {
+  flex: 1;
+  text-align: center;
+}
+
+[data-pin-point] .pp-btn--danger {
   border: none;
-  cursor: pointer;
-  font-size: 12px;
-  color: #6C5CE7;
+  background: #dc3545;
+  color: #fff;
   font-weight: 600;
-  padding: 0 2px;
+}
+
+[data-pin-point] .pp-btn--danger:hover {
+  background: #c82333;
 }

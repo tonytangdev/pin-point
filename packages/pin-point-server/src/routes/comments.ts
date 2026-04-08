@@ -77,7 +77,8 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
     const result = await runEffect(
       Effect.gen(function* () {
         const service = yield* CommentService
-        return yield* service.update(id, decoded.right.content)
+        const updated = yield* service.update(id, decoded.right.content)
+        return { _tag: "ok" as const, data: updated }
       }).pipe(
         Effect.catchTag("CommentNotFound", () =>
           Effect.succeed({ _tag: "notFound" as const })
@@ -87,9 +88,9 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
         ),
       ),
     )
-    if ("_tag" in result && result._tag === "notFound") return c.json({ error: "Not found" }, 404)
-    if ("_tag" in result && result._tag === "dbError") return c.json({ error: "Internal server error" }, 500)
-    return c.json(result, 200)
+    if (result._tag === "notFound") return c.json({ error: "Not found" }, 404)
+    if (result._tag === "dbError") return c.json({ error: "Internal server error" }, 500)
+    return c.json(result.data, 200)
   })
 
   return app

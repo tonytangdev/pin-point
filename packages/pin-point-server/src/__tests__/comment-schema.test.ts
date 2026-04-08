@@ -68,6 +68,12 @@ describe("UpdateCommentSchema", () => {
     expect(result._tag).toBe("Left")
   })
 
+  it("rejects whitespace-only content", () => {
+    const input = { content: "   " }
+    const result = Schema.decodeUnknownEither(UpdateCommentSchema)(input)
+    expect(result._tag).toBe("Left")
+  })
+
   it("rejects missing content", () => {
     const input = {}
     const result = Schema.decodeUnknownEither(UpdateCommentSchema)(input)

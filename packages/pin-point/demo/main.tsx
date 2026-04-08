@@ -9,18 +9,21 @@ function App() {
   return (
     <FeedbackOverlay
       onCommentCreate={async (comment) => {
-        await fetch(`${API}/comments`, {
+        const res = await fetch(`${API}/comments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(comment),
         });
+        if (!res.ok) throw new Error("Failed to create comment");
       }}
       onCommentsFetch={async () => {
         const res = await fetch(`${API}/comments?url=${window.location.pathname}`);
+        if (!res.ok) throw new Error("Failed to fetch comments");
         return res.json();
       }}
       onCommentDelete={async (id) => {
-        await fetch(`${API}/comments/${id}`, { method: "DELETE" });
+        const res = await fetch(`${API}/comments/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete comment");
       }}
       onCommentUpdate={async (id, content) => {
         const res = await fetch(`${API}/comments/${id}`, {
@@ -28,6 +31,7 @@ function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
         });
+        if (!res.ok) throw new Error("Failed to update comment");
         return res.json();
       }}
     >

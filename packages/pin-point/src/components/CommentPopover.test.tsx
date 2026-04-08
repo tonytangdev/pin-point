@@ -125,7 +125,7 @@ describe("CommentPopover — read mode delete", () => {
         viewportWidth={1440}
         top={100}
         left={200}
-        onDelete={() => {}}
+        onDelete={async () => {}}
       />
     );
     expect(screen.getByLabelText("Delete")).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe("CommentPopover — read mode delete", () => {
     expect(screen.queryByLabelText("Delete")).not.toBeInTheDocument();
   });
 
-  it("shows confirmation when delete is clicked, hides delete button", () => {
+  it("shows confirmation when delete is clicked, replaces content with prompt", () => {
     render(
       <CommentPopover
         mode="read"
@@ -154,18 +154,20 @@ describe("CommentPopover — read mode delete", () => {
         viewportWidth={1440}
         top={100}
         left={200}
-        onDelete={() => {}}
+        onDelete={async () => {}}
       />
     );
     fireEvent.click(screen.getByLabelText("Delete"));
-    // Confirmation visible
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    expect(screen.getByText("No")).toBeInTheDocument();
-    // Delete button replaced by confirmation
-    expect(screen.queryByLabelText("Delete")).not.toBeInTheDocument();
+    // Confirmation visible with Cancel and Delete buttons
+    expect(screen.getByText("Delete this comment?")).toBeInTheDocument();
+    expect(screen.getByText("Cancel")).toBeInTheDocument();
+    expect(screen.getByText("Delete")).toBeInTheDocument();
+    // Original content hidden
+    expect(screen.queryByText("Fix the heading")).not.toBeInTheDocument();
   });
 
-  it("cancels delete confirmation on No click", () => {
+  it("confirming delete removes the confirmation UI", async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined);
     render(
       <CommentPopover
         mode="read"
@@ -174,14 +176,53 @@ describe("CommentPopover — read mode delete", () => {
         viewportWidth={1440}
         top={100}
         left={200}
-        onDelete={() => {}}
+        onDelete={onDelete}
       />
     );
     fireEvent.click(screen.getByLabelText("Delete"));
-    fireEvent.click(screen.getByText("No"));
-    // Back to normal — delete button visible again, no confirmation
+    fireEvent.click(screen.getByText("Delete"));
+    expect(onDelete).toHaveBeenCalledOnce();
+  });
+
+  it("shows error when delete fails", async () => {
+    const onDelete = vi.fn().mockRejectedValue(new Error("fail"));
+    render(
+      <CommentPopover
+        mode="read"
+        content="Fix the heading"
+        createdAt="2026-04-08T12:00:00Z"
+        viewportWidth={1440}
+        top={100}
+        left={200}
+        onDelete={onDelete}
+      />
+    );
+    fireEvent.click(screen.getByLabelText("Delete"));
+    fireEvent.click(screen.getByText("Delete"));
+
+    expect(await screen.findByText("Couldn't delete. Try again.")).toBeInTheDocument();
+    // Still on confirmation screen so user can retry
+    expect(screen.getByText("Delete this comment?")).toBeInTheDocument();
+  });
+
+  it("cancels delete confirmation and returns to read mode", () => {
+    render(
+      <CommentPopover
+        mode="read"
+        content="Fix the heading"
+        createdAt="2026-04-08T12:00:00Z"
+        viewportWidth={1440}
+        top={100}
+        left={200}
+        onDelete={async () => {}}
+      />
+    );
+    fireEvent.click(screen.getByLabelText("Delete"));
+    fireEvent.click(screen.getByText("Cancel"));
+    // Back to normal — content visible, delete button available
+    expect(screen.getByText("Fix the heading")).toBeInTheDocument();
     expect(screen.getByLabelText("Delete")).toBeInTheDocument();
-    expect(screen.queryByText("Yes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete this comment?")).not.toBeInTheDocument();
   });
 });
 
@@ -237,6 +278,27 @@ describe("CommentPopover — read mode edit", () => {
     expect(screen.getByText("Cancel")).toBeInTheDocument();
     // Edit/Delete buttons hidden
     expect(screen.queryByLabelText("Edit")).not.toBeInTheDocument();
+  });
+
+  it("shows error when save fails", async () => {
+    const onUpdate = vi.fn().mockRejectedValue(new Error("fail"));
+    render(
+      <CommentPopover
+        mode="read"
+        content="Fix the heading"
+        createdAt="2026-04-08T12:00:00Z"
+        viewportWidth={1440}
+        top={100}
+        left={200}
+        onUpdate={onUpdate}
+      />
+    );
+    fireEvent.click(screen.getByLabelText("Edit"));
+    fireEvent.click(screen.getByText("Save"));
+
+    expect(await screen.findByText("Couldn't save. Try again.")).toBeInTheDocument();
+    // Still in edit mode so user can retry
+    expect(screen.getByDisplayValue("Fix the heading")).toBeInTheDocument();
   });
 
   it("save with empty content is disabled", () => {

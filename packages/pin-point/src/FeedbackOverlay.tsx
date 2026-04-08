@@ -141,7 +141,7 @@ export function FeedbackOverlay({
               viewportWidth={comment.viewport.width}
               top={pos.top}
               left={pos.left}
-              onDelete={onCommentDelete ? () => handleDelete(comment.id) : undefined}
+              onDelete={onCommentDelete ? async () => handleDelete(comment.id) : undefined}
               onUpdate={
                 onCommentUpdate
                   ? async (content: string) => {

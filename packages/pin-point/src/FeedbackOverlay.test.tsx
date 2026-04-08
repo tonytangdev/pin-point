@@ -209,8 +209,8 @@ describe("FeedbackOverlay", () => {
 
       // Click delete
       fireEvent.click(screen.getByLabelText("Delete"));
-      // Confirm
-      fireEvent.click(screen.getByText("Yes"));
+      // Confirm deletion
+      fireEvent.click(screen.getByText("Delete"));
 
       await waitFor(() => {
         // Pin and popover gone from the page
