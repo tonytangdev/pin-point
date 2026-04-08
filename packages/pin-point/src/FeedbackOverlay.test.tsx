@@ -172,6 +172,101 @@ describe("FeedbackOverlay", () => {
 
       target.remove();
     });
+
+    it("delete flow: clicking delete removes comment from state", async () => {
+      const target = document.createElement("div");
+      target.id = "test";
+      document.body.appendChild(target);
+
+      vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+        top: 100, left: 100, width: 200, height: 50,
+        bottom: 150, right: 300, x: 100, y: 100, toJSON: () => {},
+      } as DOMRect);
+
+      const onCommentDelete = vi.fn(async () => {});
+      render(
+        <FeedbackOverlay
+          onCommentCreate={async () => {}}
+          onCommentsFetch={async () => [mockComment]}
+          onCommentDelete={onCommentDelete}
+        >
+          <div>My App</div>
+        </FeedbackOverlay>
+      );
+
+      // Wait for pin
+      let pinMarker: HTMLElement;
+      await waitFor(() => {
+        pinMarker = document.querySelector(".pp-pin") as HTMLElement;
+        expect(pinMarker).toBeInTheDocument();
+      });
+
+      // Open popover
+      fireEvent.click(pinMarker!);
+      await waitFor(() => {
+        expect(screen.getByText("Fix this heading")).toBeInTheDocument();
+      });
+
+      // Click delete
+      fireEvent.click(screen.getByLabelText("Delete"));
+      // Confirm
+      fireEvent.click(screen.getByText("Yes"));
+
+      await waitFor(() => {
+        // Pin and popover gone from the page
+        expect(document.querySelector(".pp-pin")).not.toBeInTheDocument();
+        expect(screen.queryByText("Fix this heading")).not.toBeInTheDocument();
+      });
+
+      target.remove();
+    });
+
+    it("update flow: editing updates comment in state", async () => {
+      const target = document.createElement("div");
+      target.id = "test";
+      document.body.appendChild(target);
+
+      vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+        top: 100, left: 100, width: 200, height: 50,
+        bottom: 150, right: 300, x: 100, y: 100, toJSON: () => {},
+      } as DOMRect);
+
+      const updatedComment = { ...mockComment, content: "Updated heading" };
+      const onCommentUpdate = vi.fn(async () => updatedComment);
+      render(
+        <FeedbackOverlay
+          onCommentCreate={async () => {}}
+          onCommentsFetch={async () => [mockComment]}
+          onCommentUpdate={onCommentUpdate}
+        >
+          <div>My App</div>
+        </FeedbackOverlay>
+      );
+
+      let pinMarker: HTMLElement;
+      await waitFor(() => {
+        pinMarker = document.querySelector(".pp-pin") as HTMLElement;
+        expect(pinMarker).toBeInTheDocument();
+      });
+
+      fireEvent.click(pinMarker!);
+      await waitFor(() => {
+        expect(screen.getByText("Fix this heading")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByLabelText("Edit"));
+      const textarea = screen.getByDisplayValue("Fix this heading");
+      fireEvent.change(textarea, { target: { value: "Updated heading" } });
+      fireEvent.click(screen.getByText("Save"));
+
+      await waitFor(() => {
+        // Updated content visible, edit mode dismissed
+        expect(screen.getByText("Updated heading")).toBeInTheDocument();
+        expect(screen.queryByDisplayValue("Updated heading")).not.toBeInTheDocument();
+      });
+
+      target.remove();
+    });
   });
 
   it("renders children when feedback mode is off", () => {

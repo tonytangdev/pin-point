@@ -11,6 +11,8 @@ import { FeedbackToolbar } from "./components/FeedbackToolbar";
 export function FeedbackOverlay({
   onCommentCreate,
   onCommentsFetch,
+  onCommentDelete,
+  onCommentUpdate,
   queryParam = "feedback",
   children,
 }: FeedbackOverlayProps) {
@@ -75,6 +77,27 @@ export function FeedbackOverlay({
     setPendingPin(null);
   }, []);
 
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!onCommentDelete) return;
+      await onCommentDelete(id);
+      setComments((prev) => prev.filter((c) => c.id !== id));
+      setExpandedPinId(null);
+    },
+    [onCommentDelete]
+  );
+
+  const handleUpdate = useCallback(
+    async (id: string, content: string) => {
+      if (!onCommentUpdate) return;
+      const updated = await onCommentUpdate(id, content);
+      setComments((prev) =>
+        prev.map((c) => (c.id === id ? updated : c))
+      );
+    },
+    [onCommentUpdate]
+  );
+
   if (!isActive) {
     return <>{children}</>;
   }
@@ -118,6 +141,14 @@ export function FeedbackOverlay({
               viewportWidth={comment.viewport.width}
               top={pos.top}
               left={pos.left}
+              onDelete={onCommentDelete ? () => handleDelete(comment.id) : undefined}
+              onUpdate={
+                onCommentUpdate
+                  ? async (content: string) => {
+                      await handleUpdate(comment.id, content);
+                    }
+                  : undefined
+              }
             />
           );
         })()}
