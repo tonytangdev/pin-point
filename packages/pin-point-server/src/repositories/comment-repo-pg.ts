@@ -55,6 +55,12 @@ export const CommentRepoLive = Layer.effect(
           const result = yield* sql`DELETE FROM comments WHERE id = ${id} RETURNING id`
           return result.length > 0
         }).pipe(Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e })))),
+
+      updateById: (id: string, content: string) =>
+        Effect.gen(function* () {
+          const result = yield* sql`UPDATE comments SET content = ${content} WHERE id = ${id} RETURNING *`
+          return result.length > 0 ? decodeRow(result[0]) : null
+        }).pipe(Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e })))),
     }
   }),
 )

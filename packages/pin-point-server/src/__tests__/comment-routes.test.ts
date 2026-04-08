@@ -21,6 +21,12 @@ const CommentRepoTest = Layer.succeed(CommentRepository, {
     stored.splice(idx, 1)
     return Effect.succeed(true)
   },
+  updateById: (id, content) => {
+    const idx = stored.findIndex((c) => c.id === id)
+    if (idx === -1) return Effect.succeed(null)
+    stored[idx] = { ...stored[idx], content }
+    return Effect.succeed(stored[idx])
+  },
 })
 
 const TestLive = CommentServiceLive.pipe(Layer.provide(CommentRepoTest))

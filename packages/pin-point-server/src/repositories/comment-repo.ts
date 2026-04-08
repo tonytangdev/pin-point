@@ -9,5 +9,6 @@ export class CommentRepository extends Context.Tag("CommentRepository")<
     readonly findByUrl: (url: string) => Effect.Effect<PinComment[], DatabaseError>
     readonly findAll: () => Effect.Effect<PinComment[], DatabaseError>
     readonly deleteById: (id: string) => Effect.Effect<boolean, DatabaseError>
+    readonly updateById: (id: string, content: string) => Effect.Effect<PinComment | null, DatabaseError>
   }
 >() {}

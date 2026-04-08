@@ -21,6 +21,10 @@ const CommentRepoTest = Layer.succeed(CommentRepository, {
     Effect.succeed(url === testComment.url ? [testComment] : []),
   findAll: () => Effect.succeed([testComment]),
   deleteById: (id) => Effect.succeed(id === "test-id"),
+  updateById: (id, content) =>
+    Effect.succeed(
+      id === "test-id" ? { ...testComment, content } : null
+    ),
 })
 
 const TestLive = CommentServiceLive.pipe(Layer.provide(CommentRepoTest))
