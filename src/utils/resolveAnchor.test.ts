@@ -76,7 +76,10 @@ describe("resolveAnchor", () => {
     const rect = section.getBoundingClientRect();
     const result = resolveAnchor(section, rect.left, rect.top);
 
-    expect(result.selector).toMatch(/main|section/);
+    // Must contain ">" separators and recognizable tag names
+    expect(result.selector).toMatch(/>/);
+    expect(result.selector).toMatch(/\bmain\b/);
+    expect(result.selector).toMatch(/\bsection\b/);
 
     container.remove();
   });
@@ -86,12 +89,39 @@ describe("resolveAnchor", () => {
     el.id = "box";
     document.body.appendChild(el);
 
+    // mock rect: left=0, top=0, width=200, height=100
+    // click at (100, 50) => xPercent=50, yPercent=50
+    const result = resolveAnchor(el, 100, 50);
+
+    expect(result.selector).toBe("#box");
+    expect(result.xPercent).toBeCloseTo(50, 1);
+    expect(result.yPercent).toBeCloseTo(50, 1);
+
+    el.remove();
+  });
+
+  it("uses data-cy selector when element has only data-cy", () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-cy", "submit-btn");
+    document.body.appendChild(el);
+
     const rect = el.getBoundingClientRect();
     const result = resolveAnchor(el, rect.left, rect.top);
 
-    expect(result.selector).toBe("#box");
-    expect(typeof result.xPercent).toBe("number");
-    expect(typeof result.yPercent).toBe("number");
+    expect(result.selector).toBe('[data-cy="submit-btn"]');
+
+    el.remove();
+  });
+
+  it("uses arbitrary data-* selector when element has only a custom data attr", () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-foo", "bar");
+    document.body.appendChild(el);
+
+    const rect = el.getBoundingClientRect();
+    const result = resolveAnchor(el, rect.left, rect.top);
+
+    expect(result.selector).toBe('[data-foo="bar"]');
 
     el.remove();
   });
