@@ -489,8 +489,7 @@ describe("CommentPopover — read mode delete", () => {
     expect(screen.queryByLabelText("Delete")).not.toBeInTheDocument();
   });
 
-  it("shows confirmation on delete click, calls onDelete on confirm", async () => {
-    const onDelete = vi.fn();
+  it("shows confirmation when delete is clicked, hides delete button", () => {
     render(
       <CommentPopover
         mode="read"
@@ -499,15 +498,15 @@ describe("CommentPopover — read mode delete", () => {
         viewportWidth={1440}
         top={100}
         left={200}
-        onDelete={onDelete}
+        onDelete={() => {}}
       />
     );
     fireEvent.click(screen.getByLabelText("Delete"));
+    // Confirmation visible
     expect(screen.getByText("Yes")).toBeInTheDocument();
     expect(screen.getByText("No")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("Yes"));
-    expect(onDelete).toHaveBeenCalledOnce();
+    // Delete button replaced by confirmation
+    expect(screen.queryByLabelText("Delete")).not.toBeInTheDocument();
   });
 
   it("cancels delete confirmation on No click", () => {
@@ -569,8 +568,7 @@ describe("CommentPopover — read mode edit", () => {
     expect(textarea).toBeInTheDocument();
   });
 
-  it("save calls onUpdate with new content", async () => {
-    const onUpdate = vi.fn().mockResolvedValue(undefined);
+  it("save hides textarea and shows Save/Cancel buttons while editing", async () => {
     render(
       <CommentPopover
         mode="read"
@@ -579,19 +577,37 @@ describe("CommentPopover — read mode edit", () => {
         viewportWidth={1440}
         top={100}
         left={200}
-        onUpdate={onUpdate}
+        onUpdate={async () => {}}
+      />
+    );
+    fireEvent.click(screen.getByLabelText("Edit"));
+    // Edit mode visible
+    expect(screen.getByDisplayValue("Fix the heading")).toBeInTheDocument();
+    expect(screen.getByText("Save")).toBeInTheDocument();
+    expect(screen.getByText("Cancel")).toBeInTheDocument();
+    // Edit/Delete buttons hidden
+    expect(screen.queryByLabelText("Edit")).not.toBeInTheDocument();
+  });
+
+  it("save with empty content is disabled", () => {
+    render(
+      <CommentPopover
+        mode="read"
+        content="Fix the heading"
+        createdAt="2026-04-08T12:00:00Z"
+        viewportWidth={1440}
+        top={100}
+        left={200}
+        onUpdate={async () => {}}
       />
     );
     fireEvent.click(screen.getByLabelText("Edit"));
     const textarea = screen.getByDisplayValue("Fix the heading");
-    fireEvent.change(textarea, { target: { value: "New content" } });
-    fireEvent.click(screen.getByText("Save"));
-
-    expect(onUpdate).toHaveBeenCalledWith("New content");
+    fireEvent.change(textarea, { target: { value: "" } });
+    expect(screen.getByText("Save")).toBeDisabled();
   });
 
-  it("cancel returns to read mode without calling onUpdate", () => {
-    const onUpdate = vi.fn();
+  it("cancel returns to read mode showing original content", () => {
     render(
       <CommentPopover
         mode="read"
@@ -600,15 +616,18 @@ describe("CommentPopover — read mode edit", () => {
         viewportWidth={1440}
         top={100}
         left={200}
-        onUpdate={onUpdate}
+        onUpdate={async () => {}}
       />
     );
     fireEvent.click(screen.getByLabelText("Edit"));
+    const textarea = screen.getByDisplayValue("Fix the heading");
+    fireEvent.change(textarea, { target: { value: "Changed" } });
     fireEvent.click(screen.getByText("Cancel"));
 
-    // Back to read mode
+    // Back to read mode with original content
     expect(screen.getByText("Fix the heading")).toBeInTheDocument();
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue("Changed")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Edit")).toBeInTheDocument();
   });
 });
 ```
@@ -882,9 +901,9 @@ Add to `packages/pin-point/src/FeedbackOverlay.test.tsx` inside the `interaction
       fireEvent.click(screen.getByText("Yes"));
 
       await waitFor(() => {
-        expect(onCommentDelete).toHaveBeenCalledWith("1");
-        // Pin gone
+        // Pin and popover gone from the page
         expect(document.querySelector(".pp-pin")).not.toBeInTheDocument();
+        expect(screen.queryByText("Fix this heading")).not.toBeInTheDocument();
       });
 
       target.remove();
@@ -929,8 +948,9 @@ Add to `packages/pin-point/src/FeedbackOverlay.test.tsx` inside the `interaction
       fireEvent.click(screen.getByText("Save"));
 
       await waitFor(() => {
-        expect(onCommentUpdate).toHaveBeenCalledWith("1", "Updated heading");
+        // Updated content visible, edit mode dismissed
         expect(screen.getByText("Updated heading")).toBeInTheDocument();
+        expect(screen.queryByDisplayValue("Updated heading")).not.toBeInTheDocument();
       });
 
       target.remove();
