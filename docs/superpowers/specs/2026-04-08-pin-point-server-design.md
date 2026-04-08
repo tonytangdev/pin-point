@@ -9,6 +9,7 @@ Standalone backend server for the pin-point feedback overlay library. Stores and
 - **Pluggable DB** — SQLite default. Postgres and MySQL adapters deferred to a future iteration; the repository interface makes adding them straightforward
 - **No auth** — users handle auth externally (reverse proxy, VPN, etc.)
 - **Separate npm package** (`pin-point-server`) in the existing monorepo
+- **pnpm workspaces** as package manager
 - **Full layered architecture** — Routes → Service → Repository
 
 ## Architecture
