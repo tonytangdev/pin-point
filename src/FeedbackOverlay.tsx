@@ -26,7 +26,7 @@ export function FeedbackOverlay({
     hasFetched.current = true;
 
     onCommentsFetch()
-      .then(setComments)
+      .then((data) => setComments([...data]))
       .catch(() => setFetchError("Couldn't load comments."));
   }, [isActive, onCommentsFetch]);
 
