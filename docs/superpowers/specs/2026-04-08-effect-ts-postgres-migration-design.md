@@ -20,7 +20,7 @@ pin-point-server/
 │   ├── errors.ts                # Tagged error classes
 │   ├── config.ts                # AppConfig via Effect.Config
 │   ├── models/
-│   │   └── comment.ts           # PinComment + CreateComment schemas (@effect/schema)
+│   │   └── comment.ts           # PinComment + CreateComment schemas (effect/Schema)
 │   ├── repositories/
 │   │   ├── comment-repo.ts      # CommentRepository service (Context.Tag)
 │   │   └── comment-repo-pg.ts   # Postgres implementation (Layer)
@@ -71,17 +71,20 @@ Error-to-HTTP mapping:
 ```typescript
 import { Config } from "effect"
 
+// Server config
 const AppConfig = Config.all({
   port: Config.number("PORT").pipe(Config.withDefault(3000)),
   host: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
-  databaseUrl: Config.string("DATABASE_URL"),  // required, no default
   corsOrigin: Config.string("CORS_ORIGIN").pipe(Config.withDefault("*")),
 })
+
+// Database config is handled by PgClient.layerConfig (see Entry Point section)
+// using individual PG_DATABASE, PG_HOST, PG_PORT, PG_USERNAME, PG_PASSWORD env vars
 ```
 
 ## Schema & Models
 
-Replace Zod with `@effect/schema`:
+Replace Zod with Effect's built-in `Schema` module (included in the `effect` package since v3):
 
 ```typescript
 import { Schema } from "effect"
@@ -166,7 +169,7 @@ const CommentRepoLive = Layer.effect(
 
       deleteById: (id) =>
         Effect.gen(function* () {
-          const result = yield* sql`DELETE FROM comments WHERE id = ${id}`
+          const result = yield* sql`DELETE FROM comments WHERE id = ${id} RETURNING id`
           return result.length > 0
         }).pipe(Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e })))),
     }
@@ -176,13 +179,26 @@ const CommentRepoLive = Layer.effect(
 
 `anchor` and `viewport` are `JSONB` columns — Postgres handles serialization natively, no manual `JSON.stringify`/`JSON.parse`.
 
+`rowToComment` maps DB column names to model fields:
+
+```typescript
+const rowToComment = (row: any): PinComment => ({
+  id: row.id,
+  url: row.url,
+  content: row.content,
+  anchor: row.anchor,       // JSONB — already parsed by pg driver
+  viewport: row.viewport,   // JSONB — already parsed by pg driver
+  createdAt: row.created_at, // snake_case → camelCase
+})
+```
+
 ## Service Layer
 
 ```typescript
 class CommentService extends Context.Tag("CommentService")<
   CommentService,
   {
-    readonly create: (input: CreateComment) => Effect.Effect<PinComment, DatabaseError | ValidationError>
+    readonly create: (input: CreateComment) => Effect.Effect<PinComment, DatabaseError>
     readonly findAll: () => Effect.Effect<PinComment[], DatabaseError>
     readonly findByUrl: (url: string) => Effect.Effect<PinComment[], DatabaseError>
     readonly delete: (id: string) => Effect.Effect<void, CommentNotFound | DatabaseError>
@@ -224,6 +240,8 @@ const CommentServiceLive = Layer.effect(
 ## Hono Routes (Bridging)
 
 ```typescript
+import { Schema } from "effect"
+
 const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
   const app = new Hono()
 
@@ -232,20 +250,25 @@ const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
 
   app.post("/comments", async (c) => {
     const body = await c.req.json()
+
+    // Validate request body with @effect/schema
+    const decoded = Schema.decodeUnknownEither(CreateCommentSchema)(body)
+    if (decoded._tag === "Left") {
+      return c.json({ error: "Invalid request body" }, 400)
+    }
+
     const result = await runEffect(
       Effect.gen(function* () {
         const service = yield* CommentService
-        return yield* service.create(body)
+        return yield* service.create(decoded.right)
       }).pipe(
-        Effect.catchTag("ValidationError", (e) =>
-          Effect.succeed(c.json({ error: e.message }, 400))
-        ),
         Effect.catchTag("DatabaseError", () =>
-          Effect.succeed(c.json({ error: "Internal server error" }, 500))
+          Effect.succeed({ _error: true as const, status: 500 })
         )
       )
     )
-    return typeof result === "Response" ? result : c.json(result, 201)
+    if ("_error" in result) return c.json({ error: "Internal server error" }, 500)
+    return c.json(result, 201)
   })
 
   app.get("/comments", async (c) => {
@@ -254,23 +277,33 @@ const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
       Effect.gen(function* () {
         const service = yield* CommentService
         return url ? yield* service.findByUrl(url) : yield* service.findAll()
-      })
+      }).pipe(
+        Effect.catchTag("DatabaseError", () =>
+          Effect.succeed([] as PinComment[])
+        )
+      )
     )
     return c.json(result)
   })
 
   app.delete("/comments/:id", async (c) => {
     const id = c.req.param("id")
-    await runEffect(
+    const result = await runEffect(
       Effect.gen(function* () {
         const service = yield* CommentService
         yield* service.delete(id)
+        return { _tag: "ok" as const }
       }).pipe(
         Effect.catchTag("CommentNotFound", () =>
-          Effect.succeed(c.json({ error: "Not found" }, 404))
+          Effect.succeed({ _tag: "notFound" as const })
+        ),
+        Effect.catchTag("DatabaseError", () =>
+          Effect.succeed({ _tag: "dbError" as const })
         )
       )
     )
+    if (result._tag === "notFound") return c.json({ error: "Not found" }, 404)
+    if (result._tag === "dbError") return c.json({ error: "Internal server error" }, 500)
     return c.body(null, 204)
   })
 
@@ -278,19 +311,24 @@ const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
 }
 ```
 
-- `Effect.catchTag` maps typed errors → HTTP status codes
-- `@hono/zod-validator` removed — validation done via `@effect/schema` in the service
+- `Schema.decodeUnknownEither` validates request body before entering Effect pipeline
+- Error handlers return discriminated objects (not Response) to avoid `typeof` issues
+- DELETE captures result to decide between 204 and 404
+- `@hono/zod-validator` removed — validation via `effect/Schema`
 
 ## Migration
+
+Uses `PgMigrator` from `@effect/sql-pg` — the canonical migration system for Effect SQL.
+
+Migration files use `Effect.flatMap` format (required by `PgMigrator.fromFileSystem`):
 
 ```typescript
 // src/migrations/0001_create_comments.ts
 import { SqlClient } from "@effect/sql"
 import { Effect } from "effect"
 
-export default Effect.gen(function* () {
-  const sql = yield* SqlClient.SqlClient
-  yield* sql`
+export default Effect.flatMap(SqlClient.SqlClient, (sql) =>
+  sql`
     CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY,
       url TEXT NOT NULL,
@@ -298,31 +336,59 @@ export default Effect.gen(function* () {
       anchor JSONB NOT NULL,
       viewport JSONB NOT NULL,
       created_at TIMESTAMPTZ NOT NULL
-    )
+    );
+    CREATE INDEX IF NOT EXISTS idx_comments_url ON comments(url);
   `
-  yield* sql`
-    CREATE INDEX IF NOT EXISTS idx_comments_url ON comments(url)
-  `
-})
+)
+```
+
+Migrator layer setup:
+
+```typescript
+import { PgMigrator } from "@effect/sql-pg"
+import { fileURLToPath } from "node:url"
+
+const MigratorLive = PgMigrator.layer({
+  loader: PgMigrator.fromFileSystem(
+    fileURLToPath(new URL("migrations", import.meta.url))
+  ),
+  schemaDirectory: "src/migrations",
+}).pipe(Layer.provide(SqlLive))
 ```
 
 - `JSONB` for anchor/viewport (native JSON in Postgres)
 - `TIMESTAMPTZ` for created_at
-- Migrations run at startup before server listens
+- Migrations run at startup via `PgMigrator` layer before server listens
+- Migration state tracked automatically by `PgMigrator`
 
 ## Entry Point & Layer Composition
 
 ```typescript
+import { NodeContext, NodeRuntime } from "@effect/platform-node"
+import { PgClient, PgMigrator } from "@effect/sql-pg"
+import { fileURLToPath } from "node:url"
+
+const SqlLive = PgClient.layerConfig({
+  database: Config.string("PG_DATABASE"),
+  host: Config.string("PG_HOST").pipe(Config.withDefault("localhost")),
+  port: Config.number("PG_PORT").pipe(Config.withDefault(5432)),
+  username: Config.string("PG_USERNAME").pipe(Config.withDefault("pinpoint")),
+  password: Config.redacted("PG_PASSWORD"),
+})
+
+const MigratorLive = PgMigrator.layer({
+  loader: PgMigrator.fromFileSystem(
+    fileURLToPath(new URL("migrations", import.meta.url))
+  ),
+  schemaDirectory: "src/migrations",
+}).pipe(Layer.provide(SqlLive))
+
 const MainLive = CommentServiceLive.pipe(
   Layer.provide(CommentRepoLive),
-  Layer.provide(PgClient.layer({
-    url: Config.string("DATABASE_URL"),
-  })),
+  Layer.provide(SqlLive),
 )
 
 const program = Effect.gen(function* () {
-  yield* runMigrations
-
   const app = makeApp(MainLive)
   const config = yield* Effect.config(AppConfig)
   const server = NodeServer.serve({ fetch: app.fetch, port: config.port, hostname: config.host })
@@ -334,12 +400,18 @@ const program = Effect.gen(function* () {
 
 program.pipe(
   Effect.scoped,
-  Effect.provide(MainLive),
-  Effect.runFork,
+  Effect.provide(Layer.mergeAll(MainLive, MigratorLive)),
+  Effect.provide(NodeContext.layer),
+  NodeRuntime.runMain,
 )
 ```
 
-Layer dependency chain: `PgClient.layer → CommentRepoLive → CommentServiceLive`
+- `PgClient.layerConfig` accepts individual `Config` fields for type-safe env loading
+- `Config.redacted` for password — prevents accidental logging
+- `NodeRuntime.runMain` replaces `Effect.runFork` — handles SIGTERM/SIGINT signals and triggers finalizers
+- `MigratorLive` runs migrations automatically when the layer is provided (before `program` body executes)
+
+Layer dependency chain: `PgClient.layerConfig → CommentRepoLive → CommentServiceLive`
 
 ## Docker Compose
 
@@ -392,11 +464,17 @@ describe("CommentService", () => {
 ### E2E Tests (real Postgres via Docker)
 
 ```typescript
+const TestSqlLive = PgClient.layer({
+  database: "pinpoint_test",
+  host: "localhost",
+  port: 5432,
+  username: "pinpoint",
+  password: Redacted.make("pinpoint"),  // import { Redacted } from "effect"
+})
+
 const E2ELive = CommentServiceLive.pipe(
   Layer.provide(CommentRepoLive),
-  Layer.provide(PgClient.layer({
-    url: Config.succeed("postgresql://pinpoint:pinpoint@localhost:5432/pinpoint_test"),
-  })),
+  Layer.provide(TestSqlLive),
 )
 ```
 
@@ -407,8 +485,7 @@ const E2ELive = CommentServiceLive.pipe(
 ## Dependency Changes
 
 ### Add
-- `effect`
-- `@effect/schema`
+- `effect` (includes Schema module since v3)
 - `@effect/sql`
 - `@effect/sql-pg`
 - `@effect/vitest`
