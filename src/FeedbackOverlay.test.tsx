@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FeedbackOverlay } from "./FeedbackOverlay";
 import type { PinComment } from "./types";
@@ -15,6 +15,163 @@ const mockComment: PinComment = {
 describe("FeedbackOverlay", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
+  });
+
+  describe("interaction", () => {
+    beforeEach(() => {
+      window.history.replaceState({}, "", "/?feedback=true");
+      // Make elementFromPoint return a real element so handleClick doesn't bail
+      document.elementFromPoint = vi.fn().mockReturnValue(document.body);
+      // Deterministic UUID
+      vi.spyOn(crypto, "randomUUID").mockReturnValue(
+        "test-uuid-0000-0000-0000-000000000000"
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      // @ts-expect-error reset jsdom stub
+      delete document.elementFromPoint;
+    });
+
+    it("click-to-pin: clicking intercept layer creates pending pin", async () => {
+      render(
+        <FeedbackOverlay
+          onCommentCreate={async () => {}}
+          onCommentsFetch={async () => []}
+        >
+          <div>My App</div>
+        </FeedbackOverlay>
+      );
+
+      const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+      fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+      await waitFor(() => {
+        expect(
+          screen.getByPlaceholderText("Leave your feedback...")
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("submit flow: typing and clicking Submit calls onCommentCreate and adds pin", async () => {
+      const onCommentCreate = vi.fn(async () => {});
+
+      render(
+        <FeedbackOverlay
+          onCommentCreate={onCommentCreate}
+          onCommentsFetch={async () => []}
+        >
+          <div>My App</div>
+        </FeedbackOverlay>
+      );
+
+      const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+      fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+      await waitFor(() =>
+        expect(
+          screen.getByPlaceholderText("Leave your feedback...")
+        ).toBeInTheDocument()
+      );
+
+      const textarea = screen.getByPlaceholderText("Leave your feedback...");
+      fireEvent.change(textarea, { target: { value: "Great work!" } });
+
+      fireEvent.click(screen.getByText("Submit"));
+
+      await waitFor(() => {
+        expect(onCommentCreate).toHaveBeenCalledOnce();
+        expect(onCommentCreate).toHaveBeenCalledWith(
+          expect.objectContaining({ content: "Great work!" })
+        );
+        // Popover dismissed after submit
+        expect(
+          screen.queryByPlaceholderText("Leave your feedback...")
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it("cancel flow: clicking Cancel removes pending pin", async () => {
+      render(
+        <FeedbackOverlay
+          onCommentCreate={async () => {}}
+          onCommentsFetch={async () => []}
+        >
+          <div>My App</div>
+        </FeedbackOverlay>
+      );
+
+      const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+      fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+      await waitFor(() =>
+        expect(
+          screen.getByPlaceholderText("Leave your feedback...")
+        ).toBeInTheDocument()
+      );
+
+      fireEvent.click(screen.getByText("Cancel"));
+
+      await waitFor(() => {
+        expect(
+          screen.queryByPlaceholderText("Leave your feedback...")
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it("pin toggle: clicking existing pin shows read popover, clicking again hides it", async () => {
+      const target = document.createElement("div");
+      target.id = "test";
+      document.body.appendChild(target);
+
+      // Give the anchor element a non-zero bounding rect so restorePosition resolves it
+      vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+        top: 100,
+        left: 100,
+        width: 200,
+        height: 50,
+        bottom: 150,
+        right: 300,
+        x: 100,
+        y: 100,
+        toJSON: () => {},
+      } as DOMRect);
+
+      render(
+        <FeedbackOverlay
+          onCommentCreate={async () => {}}
+          onCommentsFetch={async () => [mockComment]}
+        >
+          <div>My App</div>
+        </FeedbackOverlay>
+      );
+
+      // Wait for existing pin marker to render
+      let pinMarker: HTMLElement;
+      await waitFor(() => {
+        pinMarker = document.querySelector(".pp-pin") as HTMLElement;
+        expect(pinMarker).toBeInTheDocument();
+      });
+
+      // Click pin marker to open read popover
+      fireEvent.click(pinMarker!);
+
+      await waitFor(() => {
+        expect(screen.getByText("Fix this heading")).toBeInTheDocument();
+      });
+
+      // Click pin marker again to close
+      fireEvent.click(pinMarker!);
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText("Fix this heading")
+        ).not.toBeInTheDocument();
+      });
+
+      target.remove();
+    });
   });
 
   it("renders children when feedback mode is off", () => {
