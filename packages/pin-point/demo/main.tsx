@@ -19,6 +19,17 @@ function App() {
         const res = await fetch(`${API}/comments?url=${window.location.pathname}`);
         return res.json();
       }}
+      onCommentDelete={async (id) => {
+        await fetch(`${API}/comments/${id}`, { method: "DELETE" });
+      }}
+      onCommentUpdate={async (id, content) => {
+        const res = await fetch(`${API}/comments/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+        return res.json();
+      }}
     >
       <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 800, margin: "0 auto", padding: 40 }}>
         <header id="header" style={{ marginBottom: 40 }}>
