@@ -29,3 +29,9 @@ export const CreateCommentSchema = Schema.Struct({
 })
 
 export type CreateComment = typeof CreateCommentSchema.Type
+
+export const UpdateCommentSchema = Schema.Struct({
+  content: Schema.NonEmptyString,
+})
+
+export type UpdateComment = typeof UpdateCommentSchema.Type

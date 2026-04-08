@@ -3,6 +3,7 @@ import { Schema } from "effect"
 import {
   PinCommentSchema,
   CreateCommentSchema,
+  UpdateCommentSchema,
   type PinComment,
   type CreateComment,
 } from "../models/comment.js"
@@ -50,6 +51,26 @@ describe("PinCommentSchema", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
     }
     const result = Schema.decodeUnknownEither(PinCommentSchema)(input)
+    expect(result._tag).toBe("Left")
+  })
+})
+
+describe("UpdateCommentSchema", () => {
+  it("decodes a valid update request", () => {
+    const input = { content: "Updated text" }
+    const result = Schema.decodeUnknownEither(UpdateCommentSchema)(input)
+    expect(result._tag).toBe("Right")
+  })
+
+  it("rejects empty content", () => {
+    const input = { content: "" }
+    const result = Schema.decodeUnknownEither(UpdateCommentSchema)(input)
+    expect(result._tag).toBe("Left")
+  })
+
+  it("rejects missing content", () => {
+    const input = {}
+    const result = Schema.decodeUnknownEither(UpdateCommentSchema)(input)
     expect(result._tag).toBe("Left")
   })
 })
