@@ -1,31 +1,42 @@
 # pin-point
 
-Visual feedback overlay for React. Drop pins on any page, leave comments.
+Visual feedback overlay for web apps. Drop pins on any page, leave comments, persist them.
 
-## Install
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| [pin-point](./packages/pin-point) | React component — feedback overlay with pins and comments |
+| [pin-point-server](./packages/pin-point-server) | Standalone backend — stores comments in SQLite, zero config |
+
+## Quick Start
 
 ```bash
+# 1. Add the React component
 npm install pin-point
-```
 
-## Usage
+# 2. Start the backend (no install needed)
+npx pin-point-server
+```
 
 ```tsx
 import { FeedbackOverlay } from 'pin-point';
 import 'pin-point/styles.css';
 
+const API = 'http://localhost:3000';
+
 function App() {
   return (
     <FeedbackOverlay
       onCommentCreate={async (comment) => {
-        await fetch('/api/comments', {
+        await fetch(`${API}/comments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(comment),
         });
       }}
       onCommentsFetch={async () => {
-        const res = await fetch(`/api/comments?url=${window.location.pathname}`);
+        const res = await fetch(`${API}/comments?url=${location.pathname}`);
         return res.json();
       }}
     >
@@ -35,31 +46,14 @@ function App() {
 }
 ```
 
-Activate feedback mode by adding `?feedback=true` to the URL. Share this link with reviewers.
+Add `?feedback=true` to any URL to activate feedback mode. Share the link with reviewers.
 
-## Props
+## Development
 
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `onCommentCreate` | `(comment: PinComment) => Promise<void>` | Yes | Called when user submits a comment |
-| `onCommentsFetch` | `() => Promise<PinComment[]>` | Yes | Called on mount to load existing comments |
-| `queryParam` | `string` | No | Query param name. Default: `"feedback"` |
-
-## PinComment
-
-```ts
-type PinComment = {
-  id: string;
-  url: string;
-  content: string;
-  anchor: {
-    selector: string;
-    xPercent: number;
-    yPercent: number;
-  };
-  viewport: { width: number };
-  createdAt: string;
-};
+```bash
+pnpm install
+pnpm build
+pnpm test
 ```
 
 ## License
