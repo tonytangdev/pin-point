@@ -6,7 +6,7 @@ Standalone backend server for the pin-point feedback overlay library. Stores and
 
 - **Standalone self-hosted server** — not a framework adapter
 - **Hono** framework (runs on Node, Bun, Deno)
-- **Pluggable DB** — SQLite default, Postgres and MySQL as optional adapters
+- **Pluggable DB** — SQLite default. Postgres and MySQL adapters deferred to a future iteration; the repository interface makes adding them straightforward
 - **No auth** — users handle auth externally (reverse proxy, VPN, etc.)
 - **Separate npm package** (`pin-point-server`) in the existing monorepo
 - **Full layered architecture** — Routes → Service → Repository
@@ -27,6 +27,10 @@ React App + pin-point (frontend)
   │ SQLite │ Postgres │ MySQL │
   └────────┴──────────┴───────┘
 ```
+
+### Monorepo Migration
+
+The existing frontend lib source must move from the repo root into `packages/pin-point/`. This is a prerequisite step that includes updating imports, build config, and package.json paths.
 
 ### Monorepo Structure
 
@@ -57,7 +61,7 @@ pin-point/
 |----------|-------------------|--------------------------------------------------|
 | `POST`   | `/comments`       | Create a comment (body = `PinComment`)           |
 | `GET`    | `/comments?url=X` | Fetch comments, optionally filtered by page URL  |
-| `DELETE`  | `/comments/:id`   | Delete a single comment                          |
+| `DELETE`  | `/comments/:id`   | Delete a single comment (admin/API use — no frontend callback yet) |
 
 - `GET /comments` without `?url` returns all comments
 - Server accepts client-generated `id` and `createdAt` but generates them server-side if missing
@@ -84,12 +88,17 @@ Single `comments` table:
 | `url`          | TEXT             | Page pathname, indexed                       |
 | `content`      | TEXT             | Comment body                                 |
 | `anchor`       | JSON / TEXT      | `{ selector, xPercent, yPercent }` as JSON   |
-| `viewport_width` | INTEGER        | From `viewport.width`                        |
+| `viewport`     | JSON / TEXT      | `{ width }` as JSON                          |
 | `created_at`   | TEXT / TIMESTAMP | ISO string                                   |
 
 - Index on `url` for filtered queries
-- Each adapter handles JSON serialization for its DB engine
+- Both `anchor` and `viewport` stored as JSON for consistency — matches the `PinComment` shape directly
+- Each adapter handles JSON serialization for its DB engine (SQLite: TEXT with `JSON()`, Postgres: `jsonb`, MySQL: `json`)
 - Auto-migration on startup: creates table if not exists
+
+### Column Mapping
+
+DB uses snake_case (`created_at`), API uses camelCase (`createdAt`). The repository layer handles this translation — each adapter maps between DB rows and `PinComment` objects on read/write. No ORM; explicit mapping functions in each adapter.
 
 ## Configuration
 
