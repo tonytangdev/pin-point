@@ -138,9 +138,7 @@ const PinCommentRowSchema = Schema.Struct({
   content: Schema.String,
   anchor: AnchorSchema,
   viewport: ViewportSchema,
-  createdAt: Schema.propertySignature(Schema.String).pipe(
-    Schema.fromKey("created_at")  // maps DB column → domain field
-  ),
+  createdAt: Schema.String.pipe(Schema.propertySignature, Schema.fromKey("created_at")),
 })
 
 const decodeRow = Schema.decodeUnknownSync(PinCommentRowSchema)
