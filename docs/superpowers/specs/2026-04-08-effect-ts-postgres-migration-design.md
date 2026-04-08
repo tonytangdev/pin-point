@@ -434,7 +434,7 @@ Layer dependency chain: `PgClient.layerConfig → CommentRepoLive → CommentSer
 ```yaml
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_DB: pinpoint
       POSTGRES_USER: pinpoint
