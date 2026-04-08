@@ -4,13 +4,18 @@ import { CommentRepository } from "./comment-repo.js"
 import { AnchorSchema, ViewportSchema, type PinComment } from "../models/comment.js"
 import { DatabaseError } from "../errors.js"
 
+const DateToString = Schema.transform(Schema.Unknown, Schema.String, {
+  decode: (v) => (v instanceof Date ? v.toISOString() : String(v)),
+  encode: (s) => s,
+})
+
 const PinCommentRowSchema = Schema.Struct({
   id: Schema.String,
   url: Schema.String,
   content: Schema.String,
   anchor: AnchorSchema,
   viewport: ViewportSchema,
-  createdAt: Schema.String.pipe(Schema.propertySignature, Schema.fromKey("created_at")),
+  createdAt: DateToString.pipe(Schema.propertySignature, Schema.fromKey("created_at")),
 })
 
 const decodeRow = (row: unknown) => Schema.decodeUnknownSync(PinCommentRowSchema)(row)
