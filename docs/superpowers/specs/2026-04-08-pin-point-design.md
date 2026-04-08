@@ -30,7 +30,7 @@ npm package. React component with peer dependency on React 18+.
 
 ```ts
 type PinComment = {
-  id: string;
+  id: string;                     // generated client-side via crypto.randomUUID()
   url: string;                    // page pathname
   content: string;                // comment text
   anchor: {
@@ -71,7 +71,7 @@ When a user clicks to place a pin, the system resolves a stable anchor element. 
 
 1. **Exact match** — clicked element has an `id` -> `#myElement`
 2. **Nearest ancestor with id** — walk up DOM -> `#parentId`
-3. **Nearest ancestor with data attribute** — `data-testid`, `data-cy`, or any `data-*` -> `[data-testid="hero-section"]`
+3. **Nearest ancestor with data attribute** — checked in order: `data-testid`, `data-cy`, then first `data-*` found -> `[data-testid="hero-section"]`
 4. **Fallback: structural path** — tag names + nth-child, max 3 levels -> `main > div:nth-child(2) > section`
 
 Coordinates (`xPercent`, `yPercent`) are stored relative to the anchor element's bounding box. Viewport width is stored alongside for context.
@@ -138,7 +138,7 @@ Coordinates (`xPercent`, `yPercent`) are stored relative to the anchor element's
 - All classes prefixed with `pp-` (e.g. `pp-pin`, `pp-popover`, `pp-toolbar`)
 - CSS scoped via `[data-pin-point] .pp-*` selectors
 - Styles injected via `<style>` tag in document head
-- Overlay uses `z-index: 2147483647`
+- All overlay elements (intercept layer, pins, popovers, toolbar) share `z-index: 2147483647`. Pins/popovers/toolbar rendered after the intercept layer in DOM order so they sit above it.
 - No Shadow DOM (React event delegation issues)
 - No CSS-in-JS runtime (keeps bundle lightweight)
 
