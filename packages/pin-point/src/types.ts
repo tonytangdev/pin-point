@@ -28,6 +28,8 @@ export type PendingPin = {
 export type FeedbackOverlayProps = {
   onCommentCreate: (comment: PinComment) => Promise<void>;
   onCommentsFetch: () => Promise<PinComment[]>;
+  onCommentDelete?: (id: string) => Promise<void>;
+  onCommentUpdate?: (id: string, content: string) => Promise<PinComment>;
   queryParam?: string;
   children: React.ReactNode;
 };
