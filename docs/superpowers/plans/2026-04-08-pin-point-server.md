@@ -41,10 +41,9 @@ All existing source files (`src/`, `demo/`, `tsconfig.json`, `tsup.config.ts`, `
 | `src/repositories/comment-repository.ts` | Interface definition |
 | `src/repositories/in-memory-repository.ts` | In-memory impl (for tests) |
 | `src/repositories/sqlite-repository.ts` | SQLite impl |
-| `src/__tests__/comment-service.test.ts` | Service unit tests |
-| `src/__tests__/comments-routes.test.ts` | Route integration tests |
-| `src/__tests__/sqlite-repository.test.ts` | SQLite integration tests |
-| `src/__tests__/e2e.test.ts` | Full server E2E tests |
+| `src/__tests__/comments-routes.test.ts` | Behavioral tests: HTTP API behavior |
+| `src/__tests__/sqlite-repository.test.ts` | Behavioral tests: SQLite adapter data persistence |
+| `src/__tests__/e2e.test.ts` | Behavioral tests: full server lifecycle via HTTP |
 | `Dockerfile` | Container image |
 
 ---
@@ -336,75 +335,16 @@ git commit -m "feat(server): add PinComment type and Zod schema"
 
 ---
 
-## Task 4: Repository Interface + In-Memory Implementation
+## Task 4: Repository Interface, In-Memory Impl, and Service
+
+No dedicated tests for these — they are internal implementation details tested behaviorally through the route tests (Task 5) and E2E tests (Task 9).
 
 **Files:**
 - Create: `packages/pin-point-server/src/repositories/comment-repository.ts`
 - Create: `packages/pin-point-server/src/repositories/in-memory-repository.ts`
+- Create: `packages/pin-point-server/src/services/comment-service.ts`
 
-- [ ] **Step 1: Write test for in-memory repository**
-
-Create `packages/pin-point-server/src/__tests__/in-memory-repository.test.ts`:
-
-```typescript
-import { describe, it, expect, beforeEach } from "vitest";
-import { InMemoryCommentRepository } from "../repositories/in-memory-repository";
-import type { PinComment } from "../types";
-
-const makeComment = (overrides: Partial<PinComment> = {}): PinComment => ({
-  id: "test-1",
-  url: "/page",
-  content: "test comment",
-  anchor: { selector: "#el", xPercent: 50, yPercent: 50 },
-  viewport: { width: 1440 },
-  createdAt: "2026-04-08T00:00:00.000Z",
-  ...overrides,
-});
-
-describe("InMemoryCommentRepository", () => {
-  let repo: InMemoryCommentRepository;
-
-  beforeEach(() => {
-    repo = new InMemoryCommentRepository();
-  });
-
-  it("creates and retrieves a comment", async () => {
-    const comment = makeComment();
-    await repo.create(comment);
-    const all = await repo.findAll();
-    expect(all).toHaveLength(1);
-    expect(all[0]).toEqual(comment);
-  });
-
-  it("finds comments by url", async () => {
-    await repo.create(makeComment({ id: "1", url: "/a" }));
-    await repo.create(makeComment({ id: "2", url: "/b" }));
-    await repo.create(makeComment({ id: "3", url: "/a" }));
-    const results = await repo.findByUrl("/a");
-    expect(results).toHaveLength(2);
-    expect(results.every((c) => c.url === "/a")).toBe(true);
-  });
-
-  it("deletes a comment by id", async () => {
-    await repo.create(makeComment({ id: "1" }));
-    await repo.create(makeComment({ id: "2" }));
-    await repo.deleteById("1");
-    const all = await repo.findAll();
-    expect(all).toHaveLength(1);
-    expect(all[0].id).toBe("2");
-  });
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-```bash
-cd packages/pin-point-server && pnpm test
-```
-
-Expected: FAIL — modules not found.
-
-- [ ] **Step 3: Implement repository interface**
+- [ ] **Step 1: Implement repository interface**
 
 Create `packages/pin-point-server/src/repositories/comment-repository.ts`:
 
@@ -419,7 +359,7 @@ export interface CommentRepository {
 }
 ```
 
-- [ ] **Step 4: Implement in-memory repository**
+- [ ] **Step 2: Implement in-memory repository**
 
 Create `packages/pin-point-server/src/repositories/in-memory-repository.ts`:
 
@@ -448,93 +388,6 @@ export class InMemoryCommentRepository implements CommentRepository {
   }
 }
 ```
-
-- [ ] **Step 5: Run tests**
-
-```bash
-cd packages/pin-point-server && pnpm test
-```
-
-Expected: All tests PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add packages/pin-point-server/src/repositories/ packages/pin-point-server/src/__tests__/in-memory-repository.test.ts
-git commit -m "feat(server): add CommentRepository interface and in-memory impl"
-```
-
----
-
-## Task 5: Comment Service
-
-**Files:**
-- Create: `packages/pin-point-server/src/services/comment-service.ts`
-- Create: `packages/pin-point-server/src/__tests__/comment-service.test.ts`
-
-- [ ] **Step 1: Write service tests**
-
-Create `packages/pin-point-server/src/__tests__/comment-service.test.ts`:
-
-```typescript
-import { describe, it, expect, beforeEach } from "vitest";
-import { CommentService } from "../services/comment-service";
-import { InMemoryCommentRepository } from "../repositories/in-memory-repository";
-import type { PinComment } from "../types";
-
-const makeComment = (overrides: Partial<PinComment> = {}): PinComment => ({
-  id: "test-1",
-  url: "/page",
-  content: "test",
-  anchor: { selector: "#el", xPercent: 50, yPercent: 50 },
-  viewport: { width: 1440 },
-  createdAt: "2026-04-08T00:00:00.000Z",
-  ...overrides,
-});
-
-describe("CommentService", () => {
-  let service: CommentService;
-
-  beforeEach(() => {
-    service = new CommentService(new InMemoryCommentRepository());
-  });
-
-  it("creates a comment", async () => {
-    const comment = makeComment();
-    const result = await service.create(comment);
-    expect(result).toEqual(comment);
-  });
-
-  it("lists all comments", async () => {
-    await service.create(makeComment({ id: "1" }));
-    await service.create(makeComment({ id: "2" }));
-    const all = await service.findAll();
-    expect(all).toHaveLength(2);
-  });
-
-  it("lists comments by url", async () => {
-    await service.create(makeComment({ id: "1", url: "/a" }));
-    await service.create(makeComment({ id: "2", url: "/b" }));
-    const results = await service.findByUrl("/a");
-    expect(results).toHaveLength(1);
-  });
-
-  it("deletes a comment", async () => {
-    await service.create(makeComment({ id: "1" }));
-    await service.delete("1");
-    const all = await service.findAll();
-    expect(all).toHaveLength(0);
-  });
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-```bash
-cd packages/pin-point-server && pnpm test -- src/__tests__/comment-service.test.ts
-```
-
-Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement service**
 
@@ -565,24 +418,24 @@ export class CommentService {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Lint check**
 
 ```bash
-cd packages/pin-point-server && pnpm test -- src/__tests__/comment-service.test.ts
+cd packages/pin-point-server && pnpm lint
 ```
 
-Expected: All PASS.
+Expected: No errors.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/pin-point-server/src/services/ packages/pin-point-server/src/__tests__/comment-service.test.ts
-git commit -m "feat(server): add CommentService layer"
+git add packages/pin-point-server/src/repositories/ packages/pin-point-server/src/services/
+git commit -m "feat(server): add repository interface, in-memory impl, and service"
 ```
 
 ---
 
-## Task 6: Hono Routes
+## Task 5: Hono Routes
 
 **Files:**
 - Create: `packages/pin-point-server/src/routes/comments.ts`
@@ -771,7 +624,7 @@ git commit -m "feat(server): add Hono routes and app factory"
 
 ---
 
-## Task 7: Config Module
+## Task 6: Config Module
 
 **Files:**
 - Create: `packages/pin-point-server/src/config.ts`
@@ -817,7 +670,7 @@ git commit -m "feat(server): add config module"
 
 ---
 
-## Task 8: SQLite Repository
+## Task 7: SQLite Repository
 
 **Files:**
 - Create: `packages/pin-point-server/src/repositories/sqlite-repository.ts`
@@ -1026,7 +879,7 @@ git commit -m "feat(server): add SQLite repository with auto-migration"
 
 ---
 
-## Task 9: Server Entry Point
+## Task 8: Server Entry Point
 
 **Files:**
 - Create: `packages/pin-point-server/src/index.ts`
@@ -1084,7 +937,7 @@ git commit -m "feat(server): add entry point with node server"
 
 ---
 
-## Task 10: E2E Tests
+## Task 9: E2E Tests
 
 **Files:**
 - Create: `packages/pin-point-server/src/__tests__/e2e.test.ts`
@@ -1184,7 +1037,7 @@ git commit -m "test(server): add E2E test with full comment lifecycle"
 
 ---
 
-## Task 11: Dockerfile
+## Task 10: Dockerfile
 
 **Files:**
 - Create: `packages/pin-point-server/Dockerfile`
@@ -1235,7 +1088,7 @@ git commit -m "chore(server): add Dockerfile"
 
 ---
 
-## Task 12: Final Verification
+## Task 11: Final Verification
 
 - [ ] **Step 1: Run full build from root**
 
