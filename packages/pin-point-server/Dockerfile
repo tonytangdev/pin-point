@@ -14,7 +14,9 @@ COPY --from=builder /app/packages/pin-point-server/dist ./dist
 COPY --from=builder /app/packages/pin-point-server/package.json .
 COPY --from=builder /app/pnpm-lock.yaml .
 RUN pnpm install --prod
-ENV DATABASE_URL=/data/pin-point.db
-VOLUME /data
+ENV PG_HOST=localhost
+ENV PG_PORT=5432
+ENV PG_DATABASE=pinpoint
+ENV PG_USERNAME=pinpoint
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
