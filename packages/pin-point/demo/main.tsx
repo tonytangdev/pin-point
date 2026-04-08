@@ -3,18 +3,21 @@ import { createRoot } from "react-dom/client";
 import { FeedbackOverlay } from "../src/index";
 import "../src/styles/pin-point.css";
 
-// In-memory comment store
-let comments: any[] = [];
+const API = "http://localhost:3000";
 
 function App() {
   return (
     <FeedbackOverlay
       onCommentCreate={async (comment) => {
-        comments = [...comments, comment];
-        console.log("Comment created:", comment);
+        await fetch(`${API}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(comment),
+        });
       }}
       onCommentsFetch={async () => {
-        return [...comments];
+        const res = await fetch(`${API}/comments?url=${window.location.pathname}`);
+        return res.json();
       }}
     >
       <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 800, margin: "0 auto", padding: 40 }}>
