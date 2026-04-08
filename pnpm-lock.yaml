@@ -65,6 +65,9 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
+      '@types/node':
+        specifier: ^25.5.2
+        version: 25.5.2
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)
