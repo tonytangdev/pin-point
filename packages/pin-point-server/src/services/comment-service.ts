@@ -1,22 +1,43 @@
-import type { PinComment } from "../types";
-import type { CommentRepository } from "../repositories/comment-repository";
+import { Context, Effect, Layer } from "effect"
+import type { PinComment, CreateComment } from "../models/comment.js"
+import { CommentRepository } from "../repositories/comment-repo.js"
+import { CommentNotFound, type DatabaseError } from "../errors.js"
 
-export class CommentService {
-  constructor(private repository: CommentRepository) {}
-
-  async create(comment: PinComment): Promise<PinComment> {
-    return this.repository.create(comment);
+export class CommentService extends Context.Tag("CommentService")<
+  CommentService,
+  {
+    readonly create: (input: CreateComment) => Effect.Effect<PinComment, DatabaseError>
+    readonly findAll: () => Effect.Effect<PinComment[], DatabaseError>
+    readonly findByUrl: (url: string) => Effect.Effect<PinComment[], DatabaseError>
+    readonly delete: (id: string) => Effect.Effect<void, CommentNotFound | DatabaseError>
   }
+>() {}
 
-  async findAll(): Promise<PinComment[]> {
-    return this.repository.findAll();
-  }
+export const CommentServiceLive = Layer.effect(
+  CommentService,
+  Effect.gen(function* () {
+    const repo = yield* CommentRepository
 
-  async findByUrl(url: string): Promise<PinComment[]> {
-    return this.repository.findByUrl(url);
-  }
+    return {
+      create: (input: CreateComment) =>
+        Effect.gen(function* () {
+          const comment: PinComment = {
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            ...input,
+          }
+          return yield* repo.create(comment)
+        }),
 
-  async delete(id: string): Promise<boolean> {
-    return this.repository.deleteById(id);
-  }
-}
+      findAll: () => repo.findAll(),
+
+      findByUrl: (url: string) => repo.findByUrl(url),
+
+      delete: (id: string) =>
+        Effect.gen(function* () {
+          const deleted = yield* repo.deleteById(id)
+          if (!deleted) yield* Effect.fail(new CommentNotFound({ id }))
+        }),
+    }
+  }),
+)
