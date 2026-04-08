@@ -20,7 +20,7 @@ pin-point-server/
 │   ├── errors.ts                # Tagged error classes
 │   ├── config.ts                # AppConfig via Effect.Config
 │   ├── models/
-│   │   └── comment.ts           # PinComment + CreateComment schemas (effect/Schema)
+│   │   └── comment.ts           # PinComment + CreateComment domain schemas (effect/Schema)
 │   ├── repositories/
 │   │   ├── comment-repo.ts      # CommentRepository service (Context.Tag)
 │   │   └── comment-repo-pg.ts   # Postgres implementation (Layer)
@@ -84,7 +84,11 @@ const AppConfig = Config.all({
 
 ## Schema & Models
 
-Replace Zod with Effect's built-in `Schema` module (included in the `effect` package since v3):
+Replace Zod with Effect's built-in `Schema` module (included in the `effect` package since v3).
+
+Two schema layers — **domain schemas** (pure, no DB knowledge) and **row schemas** (in the repo, map DB columns → domain fields).
+
+### Domain Schemas (models/comment.ts)
 
 ```typescript
 import { Schema } from "effect"
@@ -100,12 +104,12 @@ const ViewportSchema = Schema.Struct({
 })
 
 const PinCommentSchema = Schema.Struct({
-  id: Schema.optionalWith(Schema.String, { default: () => crypto.randomUUID() }),
+  id: Schema.String,
   url: Schema.String,
   content: Schema.String,
   anchor: AnchorSchema,
   viewport: ViewportSchema,
-  createdAt: Schema.optionalWith(Schema.String, { default: () => new Date().toISOString() }),
+  createdAt: Schema.String,
 })
 
 type PinComment = typeof PinCommentSchema.Type
@@ -120,6 +124,29 @@ const CreateCommentSchema = Schema.Struct({
 
 type CreateComment = typeof CreateCommentSchema.Type
 ```
+
+### Row Schema (repositories/comment-repo-pg.ts)
+
+Lives in the repository layer — only the repo knows about DB column names:
+
+```typescript
+import { Schema } from "effect"
+
+const PinCommentRowSchema = Schema.Struct({
+  id: Schema.String,
+  url: Schema.String,
+  content: Schema.String,
+  anchor: AnchorSchema,
+  viewport: ViewportSchema,
+  createdAt: Schema.propertySignature(Schema.String).pipe(
+    Schema.fromKey("created_at")  // maps DB column → domain field
+  ),
+})
+
+const decodeRow = Schema.decodeUnknownSync(PinCommentRowSchema)
+```
+
+This replaces the manual `rowToComment` function with type-safe, declarative decoding. Domain schemas stay clean and decoupled from DB concerns.
 
 ## Repository Layer
 
@@ -156,14 +183,14 @@ const CommentRepoLive = Layer.effect(
       findByUrl: (url) =>
         sql`SELECT * FROM comments WHERE url = ${url}`
           .pipe(
-            Effect.map((rows) => rows.map(rowToComment)),
+            Effect.map((rows) => rows.map(decodeRow)),
             Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e }))),
           ),
 
       findAll: () =>
         sql`SELECT * FROM comments`
           .pipe(
-            Effect.map((rows) => rows.map(rowToComment)),
+            Effect.map((rows) => rows.map(decodeRow)),
             Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e }))),
           ),
 
@@ -179,18 +206,7 @@ const CommentRepoLive = Layer.effect(
 
 `anchor` and `viewport` are `JSONB` columns — Postgres handles serialization natively, no manual `JSON.stringify`/`JSON.parse`.
 
-`rowToComment` maps DB column names to model fields:
-
-```typescript
-const rowToComment = (row: any): PinComment => ({
-  id: row.id,
-  url: row.url,
-  content: row.content,
-  anchor: row.anchor,       // JSONB — already parsed by pg driver
-  viewport: row.viewport,   // JSONB — already parsed by pg driver
-  createdAt: row.created_at, // snake_case → camelCase
-})
-```
+`decodeRow` (from `PinCommentRowSchema`) replaces manual row mapping — type-safe decoding with `fromKey("created_at")` handling the snake_case → camelCase conversion.
 
 ## Service Layer
 
