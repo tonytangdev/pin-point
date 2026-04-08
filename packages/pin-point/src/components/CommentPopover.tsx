@@ -7,6 +7,8 @@ type ReadProps = {
   viewportWidth: number;
   top: number;
   left: number;
+  onDelete?: () => void;
+  onUpdate?: (content: string) => Promise<void>;
   onSubmit?: never;
   onCancel?: never;
 };
@@ -39,6 +41,8 @@ export function CommentPopover(props: CommentPopoverProps) {
           content={props.content}
           createdAt={props.createdAt}
           viewportWidth={props.viewportWidth}
+          onDelete={props.onDelete}
+          onUpdate={props.onUpdate}
         />
       ) : (
         <CreateContent onSubmit={props.onSubmit} onCancel={props.onCancel} />
@@ -51,19 +55,104 @@ function ReadContent({
   content,
   createdAt,
   viewportWidth,
+  onDelete,
+  onUpdate,
 }: {
   content: string;
   createdAt: string;
   viewportWidth: number;
+  onDelete?: () => void;
+  onUpdate?: (content: string) => Promise<void>;
 }) {
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+  const [saving, setSaving] = useState(false);
+
   const date = new Date(createdAt).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 
+  if (isEditing) {
+    return (
+      <>
+        <textarea
+          className="pp-popover-textarea"
+          value={editContent}
+          onChange={(e) => setEditContent(e.target.value)}
+          autoFocus
+        />
+        <div className="pp-popover-actions">
+          <button
+            className="pp-btn pp-btn--cancel"
+            onClick={() => {
+              setIsEditing(false);
+              setEditContent(content);
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            className="pp-btn pp-btn--submit"
+            disabled={editContent.trim().length === 0 || saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onUpdate!(editContent);
+                setIsEditing(false);
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
+      {(onDelete || onUpdate) && (
+        <div className="pp-popover-toolbar">
+          {onUpdate && (
+            <button
+              className="pp-icon-btn"
+              aria-label="Edit"
+              onClick={() => setIsEditing(true)}
+            >
+              &#9998;
+            </button>
+          )}
+          {onDelete && !isConfirmingDelete && (
+            <button
+              className="pp-icon-btn pp-icon-btn--danger"
+              aria-label="Delete"
+              onClick={() => setIsConfirmingDelete(true)}
+            >
+              &#128465;
+            </button>
+          )}
+          {isConfirmingDelete && (
+            <span className="pp-confirm">
+              Delete?{" "}
+              <button className="pp-confirm-btn" onClick={onDelete}>
+                Yes
+              </button>
+              {" / "}
+              <button
+                className="pp-confirm-btn"
+                onClick={() => setIsConfirmingDelete(false)}
+              >
+                No
+              </button>
+            </span>
+          )}
+        </div>
+      )}
       <div className="pp-popover-content">{content}</div>
       <div className="pp-popover-meta">
         {date} · {viewportWidth}px viewport
