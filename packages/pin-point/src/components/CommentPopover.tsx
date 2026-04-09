@@ -1,262 +1,305 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type ReadProps = {
-  mode: "read";
-  content: string;
-  createdAt: string;
-  viewportWidth: number;
-  top: number;
-  left: number;
-  onDelete?: () => Promise<void>;
-  onUpdate?: (content: string) => Promise<void>;
-  onSubmit?: never;
-  onCancel?: never;
+	mode: "read";
+	content: string;
+	createdAt: string;
+	viewportWidth: number;
+	top: number;
+	left: number;
+	onDelete?: () => Promise<void>;
+	onUpdate?: (content: string) => Promise<void>;
+	onSubmit?: never;
+	onCancel?: never;
 };
 
 type CreateProps = {
-  mode: "create";
-  top: number;
-  left: number;
-  onSubmit: (content: string) => Promise<void>;
-  onCancel: () => void;
-  content?: never;
-  createdAt?: never;
-  viewportWidth?: never;
+	mode: "create";
+	top: number;
+	left: number;
+	onSubmit: (content: string) => Promise<void>;
+	onCancel: () => void;
+	content?: never;
+	createdAt?: never;
+	viewportWidth?: never;
 };
 
 type CommentPopoverProps = ReadProps | CreateProps;
 
 export function CommentPopover(props: CommentPopoverProps) {
-  const { mode, top, left } = props;
+	const { mode, top, left } = props;
 
-  return (
-    <div
-      className="pp-popover"
-      style={{ top: `${top + 14}px`, left: `${left}px` }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="pp-popover-arrow" />
-      {mode === "read" ? (
-        <ReadContent
-          content={props.content}
-          createdAt={props.createdAt}
-          viewportWidth={props.viewportWidth}
-          onDelete={props.onDelete}
-          onUpdate={props.onUpdate}
-        />
-      ) : (
-        <CreateContent onSubmit={props.onSubmit} onCancel={props.onCancel} />
-      )}
-    </div>
-  );
+	return (
+		// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation only, not interactive
+		<div
+			className="pp-popover"
+			style={{ top: `${top + 14}px`, left: `${left}px` }}
+			onClick={(e) => e.stopPropagation()}
+			role="dialog"
+		>
+			<div className="pp-popover-arrow" />
+			{mode === "read" ? (
+				<ReadContent
+					content={props.content}
+					createdAt={props.createdAt}
+					viewportWidth={props.viewportWidth}
+					onDelete={props.onDelete}
+					onUpdate={props.onUpdate}
+				/>
+			) : (
+				<CreateContent onSubmit={props.onSubmit} onCancel={props.onCancel} />
+			)}
+		</div>
+	);
 }
 
 function ReadContent({
-  content,
-  createdAt,
-  viewportWidth,
-  onDelete,
-  onUpdate,
+	content,
+	createdAt,
+	viewportWidth,
+	onDelete,
+	onUpdate,
 }: {
-  content: string;
-  createdAt: string;
-  viewportWidth: number;
-  onDelete?: () => Promise<void>;
-  onUpdate?: (content: string) => Promise<void>;
+	content: string;
+	createdAt: string;
+	viewportWidth: number;
+	onDelete?: () => Promise<void>;
+	onUpdate?: (content: string) => Promise<void>;
 }) {
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(content);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState(false);
-  const [editError, setEditError] = useState(false);
+	const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+	const [isEditing, setIsEditing] = useState(false);
+	const [editContent, setEditContent] = useState(content);
+	const [saving, setSaving] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState(false);
+	const [editError, setEditError] = useState(false);
 
-  useEffect(() => setEditContent(content), [content]);
+	useEffect(() => setEditContent(content), [content]);
 
-  const date = new Date(createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+	const date = new Date(createdAt).toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
 
-  if (isEditing) {
-    return (
-      <>
-        <textarea
-          className="pp-popover-textarea"
-          value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
-          autoFocus
-        />
-        <div className="pp-popover-actions">
-          <button
-            className="pp-btn pp-btn--cancel"
-            onClick={() => {
-              setIsEditing(false);
-              setEditContent(content);
-              setEditError(false);
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            className="pp-btn pp-btn--submit"
-            disabled={editContent.trim().length === 0 || saving}
-            onClick={async () => {
-              setSaving(true);
-              setEditError(false);
-              try {
-                await onUpdate!(editContent);
-                setIsEditing(false);
-              } catch {
-                setEditError(true);
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
-            Save
-          </button>
-        </div>
-        {editError && <div className="pp-popover-error">Couldn't save. Try again.</div>}
-      </>
-    );
-  }
+	if (isEditing) {
+		return (
+			<>
+				<textarea
+					className="pp-popover-textarea"
+					value={editContent}
+					onChange={(e) => setEditContent(e.target.value)}
+				/>
+				<div className="pp-popover-actions">
+					<button
+						type="button"
+						className="pp-btn pp-btn--cancel"
+						onClick={() => {
+							setIsEditing(false);
+							setEditContent(content);
+							setEditError(false);
+						}}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="pp-btn pp-btn--submit"
+						disabled={editContent.trim().length === 0 || saving}
+						onClick={async () => {
+							setSaving(true);
+							setEditError(false);
+							try {
+								await onUpdate?.(editContent);
+								setIsEditing(false);
+							} catch {
+								setEditError(true);
+							} finally {
+								setSaving(false);
+							}
+						}}
+					>
+						Save
+					</button>
+				</div>
+				{editError && (
+					<div className="pp-popover-error">Couldn't save. Try again.</div>
+				)}
+			</>
+		);
+	}
 
-  if (isConfirmingDelete) {
-    return (
-      <div className="pp-delete-confirm">
-        <div className="pp-delete-confirm-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-        </div>
-        <p className="pp-delete-confirm-text">Delete this comment?</p>
-        {deleteError && (
-          <div className="pp-popover-error">Couldn't delete. Try again.</div>
-        )}
-        <div className="pp-delete-confirm-actions">
-          <button
-            className="pp-btn pp-btn--cancel"
-            disabled={deleting}
-            onClick={() => {
-              setIsConfirmingDelete(false);
-              setDeleteError(false);
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            className="pp-btn pp-btn--danger"
-            disabled={deleting}
-            onClick={async () => {
-              setDeleting(true);
-              setDeleteError(false);
-              try {
-                await onDelete!();
-              } catch {
-                setDeleteError(true);
-              } finally {
-                setDeleting(false);
-              }
-            }}
-          >
-            {deleting ? "Deleting..." : "Delete"}
-          </button>
-        </div>
-      </div>
-    );
-  }
+	if (isConfirmingDelete) {
+		return (
+			<div className="pp-delete-confirm">
+				<div className="pp-delete-confirm-icon">
+					<svg
+						aria-hidden="true"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<circle cx="12" cy="12" r="10" />
+						<line x1="12" y1="8" x2="12" y2="12" />
+						<line x1="12" y1="16" x2="12.01" y2="16" />
+					</svg>
+				</div>
+				<p className="pp-delete-confirm-text">Delete this comment?</p>
+				{deleteError && (
+					<div className="pp-popover-error">Couldn't delete. Try again.</div>
+				)}
+				<div className="pp-delete-confirm-actions">
+					<button
+						type="button"
+						className="pp-btn pp-btn--cancel"
+						disabled={deleting}
+						onClick={() => {
+							setIsConfirmingDelete(false);
+							setDeleteError(false);
+						}}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="pp-btn pp-btn--danger"
+						disabled={deleting}
+						onClick={async () => {
+							setDeleting(true);
+							setDeleteError(false);
+							try {
+								await onDelete?.();
+							} catch {
+								setDeleteError(true);
+							} finally {
+								setDeleting(false);
+							}
+						}}
+					>
+						{deleting ? "Deleting..." : "Delete"}
+					</button>
+				</div>
+			</div>
+		);
+	}
 
-  return (
-    <>
-      <div className="pp-popover-content">{content}</div>
-      <div className="pp-popover-footer">
-        <div className="pp-popover-meta">
-          {date} · {viewportWidth}px viewport
-        </div>
-        {(onDelete || onUpdate) && (
-          <div className="pp-popover-actions-row">
-            {onUpdate && (
-              <button
-                className="pp-action-btn"
-                aria-label="Edit"
-                onClick={() => setIsEditing(true)}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                  <path d="m15 5 4 4" />
-                </svg>
-              </button>
-            )}
-            {onDelete && (
-              <button
-                className="pp-action-btn pp-action-btn--danger"
-                aria-label="Delete"
-                onClick={() => setIsConfirmingDelete(true)}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 6h18" />
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </>
-  );
+	return (
+		<>
+			<div className="pp-popover-content">{content}</div>
+			<div className="pp-popover-footer">
+				<div className="pp-popover-meta">
+					{date} · {viewportWidth}px viewport
+				</div>
+				{(onDelete || onUpdate) && (
+					<div className="pp-popover-actions-row">
+						{onUpdate && (
+							<button
+								type="button"
+								className="pp-action-btn"
+								aria-label="Edit"
+								onClick={() => setIsEditing(true)}
+							>
+								<svg
+									aria-hidden="true"
+									width="13"
+									height="13"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+									<path d="m15 5 4 4" />
+								</svg>
+							</button>
+						)}
+						{onDelete && (
+							<button
+								type="button"
+								className="pp-action-btn pp-action-btn--danger"
+								aria-label="Delete"
+								onClick={() => setIsConfirmingDelete(true)}
+							>
+								<svg
+									aria-hidden="true"
+									width="13"
+									height="13"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<path d="M3 6h18" />
+									<path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+									<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+								</svg>
+							</button>
+						)}
+					</div>
+				)}
+			</div>
+		</>
+	);
 }
 
 function CreateContent({
-  onSubmit,
-  onCancel,
+	onSubmit,
+	onCancel,
 }: {
-  onSubmit: (content: string) => Promise<void>;
-  onCancel: () => void;
+	onSubmit: (content: string) => Promise<void>;
+	onCancel: () => void;
 }) {
-  const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+	const [text, setText] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
-    setError(null);
-    setSubmitting(true);
-    try {
-      await onSubmit(text);
-    } catch {
-      setError("Couldn't save. Try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+	const handleSubmit = async () => {
+		setError(null);
+		setSubmitting(true);
+		try {
+			await onSubmit(text);
+		} catch {
+			setError("Couldn't save. Try again.");
+		} finally {
+			setSubmitting(false);
+		}
+	};
 
-  return (
-    <>
-      <textarea
-        className="pp-popover-textarea"
-        placeholder="Leave your feedback..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        autoFocus
-      />
-      <div className="pp-popover-actions">
-        <button className="pp-btn pp-btn--cancel" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          className="pp-btn pp-btn--submit"
-          onClick={handleSubmit}
-          disabled={text.trim().length === 0 || submitting}
-        >
-          Submit
-        </button>
-      </div>
-      {error && <div className="pp-popover-error">{error}</div>}
-    </>
-  );
+	return (
+		<>
+			<textarea
+				className="pp-popover-textarea"
+				placeholder="Leave your feedback..."
+				value={text}
+				onChange={(e) => setText(e.target.value)}
+			/>
+			<div className="pp-popover-actions">
+				<button
+					type="button"
+					className="pp-btn pp-btn--cancel"
+					onClick={onCancel}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					className="pp-btn pp-btn--submit"
+					onClick={handleSubmit}
+					disabled={text.trim().length === 0 || submitting}
+				>
+					Submit
+				</button>
+			</div>
+			{error && <div className="pp-popover-error">{error}</div>}
+		</>
+	);
 }

@@ -1,13 +1,13 @@
-import { Data } from "effect"
+import { Data } from "effect";
 
 export class CommentNotFound extends Data.TaggedError("CommentNotFound")<{
-  readonly id: string
+	readonly id: string;
 }> {}
 
 export class DatabaseError extends Data.TaggedError("DatabaseError")<{
-  readonly cause: unknown
+	readonly cause: unknown;
 }> {}
 
 export class ValidationError extends Data.TaggedError("ValidationError")<{
-  readonly message: string
+	readonly message: string;
 }> {}

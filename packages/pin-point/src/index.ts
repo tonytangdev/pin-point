@@ -1,2 +1,2 @@
 export { FeedbackOverlay } from "./FeedbackOverlay";
-export type { PinComment, FeedbackOverlayProps } from "./types";
+export type { FeedbackOverlayProps, PinComment } from "./types";
