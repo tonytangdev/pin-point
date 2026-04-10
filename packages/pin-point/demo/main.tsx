@@ -7,33 +7,53 @@ const API = "http://localhost:3000";
 function App() {
 	return (
 		<FeedbackOverlay
-			onCommentCreate={async (comment) => {
+			onCommentCreate={async (comment, headers) => {
 				const res = await fetch(`${API}/comments`, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: { "Content-Type": "application/json", ...headers },
 					body: JSON.stringify(comment),
 				});
-				if (!res.ok) throw new Error("Failed to create comment");
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			}}
-			onCommentsFetch={async () => {
+			onCommentsFetch={async (headers) => {
 				const res = await fetch(
-					`${API}/comments?url=${window.location.pathname}`,
+					`${API}/comments?url=${encodeURIComponent(window.location.pathname)}`,
+					{ headers },
 				);
-				if (!res.ok) throw new Error("Failed to fetch comments");
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				return res.json();
 			}}
-			onCommentDelete={async (id) => {
-				const res = await fetch(`${API}/comments/${id}`, { method: "DELETE" });
-				if (!res.ok) throw new Error("Failed to delete comment");
+			onCommentDelete={async (id, headers) => {
+				const res = await fetch(`${API}/comments/${id}`, {
+					method: "DELETE",
+					headers,
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			}}
-			onCommentUpdate={async (id, content) => {
+			onCommentUpdate={async (id, content, headers) => {
 				const res = await fetch(`${API}/comments/${id}`, {
 					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
+					headers: { "Content-Type": "application/json", ...headers },
 					body: JSON.stringify({ content }),
 				});
-				if (!res.ok) throw new Error("Failed to update comment");
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				return res.json();
+			}}
+			onAdminValidate={async (secret) => {
+				const res = await fetch(`${API}/admin/tokens`, {
+					headers: { "X-Pin-Admin": secret },
+				});
+				return res.ok;
+			}}
+			onShareLinkCreate={async (label, expiresInHours, headers) => {
+				const res = await fetch(`${API}/admin/tokens`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json", ...headers },
+					body: JSON.stringify({ label, expiresInHours }),
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const token = await res.json();
+				return { tokenId: token.id };
 			}}
 		>
 			<div
