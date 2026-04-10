@@ -8,6 +8,7 @@ import { AppConfig } from "./config.js";
 import { CommentRepoLive } from "./repositories/comment-repo-pg.js";
 import { TokenRepoLive } from "./repositories/token-repo-pg.js";
 import { CommentServiceLive } from "./services/comment-service.js";
+import { TokenServiceLive } from "./services/token-service.js";
 
 const SqlLive = PgClient.layerConfig({
 	database: Config.string("PG_DATABASE"),
@@ -26,6 +27,7 @@ const MigratorLive = PgMigrator.layer({
 
 const MainLive = Layer.mergeAll(
 	CommentServiceLive.pipe(Layer.provide(CommentRepoLive)),
+	TokenServiceLive.pipe(Layer.provide(TokenRepoLive)),
 	TokenRepoLive,
 ).pipe(Layer.provide(SqlLive));
 
