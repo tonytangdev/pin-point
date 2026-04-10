@@ -67,8 +67,10 @@ function App() {
 				<header id="header" style={{ marginBottom: 40 }}>
 					<h1>Pin-Point Demo</h1>
 					<p style={{ color: "#666" }}>
-						Add <code>?feedback=true</code> to the URL to activate feedback
-						mode.
+						Click the comment icon in the toolbar to leave feedback. Anonymous
+						users can view existing comments; to add new ones you need a
+						feedback link or the admin key. Click the key icon to enter an admin
+						key.
 					</p>
 				</header>
 
