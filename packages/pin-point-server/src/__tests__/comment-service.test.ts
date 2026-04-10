@@ -16,6 +16,9 @@ const testComment: PinComment = {
 	anchor: { selector: "#main", xPercent: 50, yPercent: 25 },
 	viewport: { width: 1024 },
 	createdAt: "2026-01-01T00:00:00.000Z",
+	tokenId: null,
+	authorName: null,
+	authorId: null,
 };
 
 const CommentRepoTest = Layer.succeed(CommentRepository, {
@@ -34,15 +37,35 @@ describe("CommentService", () => {
 	it.effect("create returns a comment with generated id and createdAt", () =>
 		Effect.gen(function* () {
 			const service = yield* CommentService;
-			const result = yield* service.create({
-				url: "https://example.com",
-				content: "Hello",
-				anchor: { selector: "#main", xPercent: 50, yPercent: 25 },
-				viewport: { width: 1024 },
-			});
+			const result = yield* service.create(
+				{
+					url: "https://example.com",
+					content: "Hello",
+					anchor: { selector: "#main", xPercent: 50, yPercent: 25 },
+					viewport: { width: 1024 },
+				},
+				{ tokenId: null },
+			);
 			assert(result.id !== undefined);
 			assert(result.createdAt !== undefined);
 			assert(result.url === "https://example.com");
+			assert(result.tokenId === null);
+		}).pipe(Effect.provide(TestLive)),
+	);
+
+	it.effect("create stores tokenId from meta", () =>
+		Effect.gen(function* () {
+			const service = yield* CommentService;
+			const result = yield* service.create(
+				{
+					url: "https://example.com",
+					content: "Hello",
+					anchor: { selector: "#main", xPercent: 50, yPercent: 25 },
+					viewport: { width: 1024 },
+				},
+				{ tokenId: "ft_test" },
+			);
+			assert(result.tokenId === "ft_test");
 		}).pipe(Effect.provide(TestLive)),
 	);
 

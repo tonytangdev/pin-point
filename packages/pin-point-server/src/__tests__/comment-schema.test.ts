@@ -34,6 +34,9 @@ describe("PinCommentSchema", () => {
 			anchor: { selector: "#main", xPercent: 50, yPercent: 25 },
 			viewport: { width: 1024 },
 			createdAt: "2026-01-01T00:00:00.000Z",
+			tokenId: null,
+			authorName: null,
+			authorId: null,
 		};
 		const result = Schema.decodeUnknownEither(PinCommentSchema)(input);
 		expect(result._tag).toBe("Right");
@@ -47,6 +50,9 @@ describe("PinCommentSchema", () => {
 			anchor: { xPercent: 50, yPercent: 25 },
 			viewport: { width: 1024 },
 			createdAt: "2026-01-01T00:00:00.000Z",
+			tokenId: null,
+			authorName: null,
+			authorId: null,
 		};
 		const result = Schema.decodeUnknownEither(PinCommentSchema)(input);
 		expect(result._tag).toBe("Left");
