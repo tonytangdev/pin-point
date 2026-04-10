@@ -13,10 +13,11 @@ export function FeedbackOverlay({
 	onCommentsFetch,
 	onCommentDelete,
 	onCommentUpdate,
-	queryParam = "feedback",
 	children,
 }: FeedbackOverlayProps) {
-	const isActive = useQueryParamDetector(queryParam);
+	// TODO(Group 9): replace hardcoded query param + empty auth headers with
+	// real auth integration via the useAuth hook.
+	const isActive = useQueryParamDetector("feedback");
 	const [comments, setComments] = useState<PinComment[]>([]);
 	const [pendingPin, setPendingPin] = useState<PendingPin | null>(null);
 	const [expandedPinId, setExpandedPinId] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export function FeedbackOverlay({
 		if (!isActive || hasFetched.current) return;
 		hasFetched.current = true;
 
-		onCommentsFetch()
+		onCommentsFetch({})
 			.then((data) => setComments([...data]))
 			.catch(() => setFetchError("Couldn't load comments."));
 	}, [isActive, onCommentsFetch]);
@@ -65,7 +66,7 @@ export function FeedbackOverlay({
 				createdAt: new Date().toISOString(),
 			};
 
-			await onCommentCreate(comment);
+			await onCommentCreate(comment, {});
 			setComments((prev) => [...prev, comment]);
 			setPendingPin(null);
 		},
@@ -79,7 +80,7 @@ export function FeedbackOverlay({
 	const handleDelete = useCallback(
 		async (id: string) => {
 			if (!onCommentDelete) return;
-			await onCommentDelete(id);
+			await onCommentDelete(id, {});
 			setComments((prev) => prev.filter((c) => c.id !== id));
 			setExpandedPinId(null);
 		},
@@ -89,7 +90,7 @@ export function FeedbackOverlay({
 	const handleUpdate = useCallback(
 		async (id: string, content: string) => {
 			if (!onCommentUpdate) return;
-			const updated = await onCommentUpdate(id, content);
+			const updated = await onCommentUpdate(id, content, {});
 			setComments((prev) => prev.map((c) => (c.id === id ? updated : c)));
 		},
 		[onCommentUpdate],
