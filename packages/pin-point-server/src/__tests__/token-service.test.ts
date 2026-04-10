@@ -23,6 +23,7 @@ const makeMockRepo = () => {
 		revoke: (id: string) => {
 			const t = stored.get(id);
 			if (!t) return Effect.succeed(false);
+			if (t.revokedAt != null) return Effect.succeed(false);
 			stored.set(id, { ...t, revokedAt: new Date().toISOString() });
 			return Effect.succeed(true);
 		},
