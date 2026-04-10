@@ -167,6 +167,36 @@
 	font-size: 12px;
 }
 
+[data-pin-point] .pp-toolbar-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 14px;
+	padding: 0;
+	transition: background 0.15s ease;
+}
+
+[data-pin-point] .pp-toolbar-btn:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.18);
+}
+
+[data-pin-point] .pp-toolbar-btn[aria-pressed="true"] {
+	background: #6c5ce7;
+	border-color: #6c5ce7;
+}
+
+[data-pin-point] .pp-toolbar-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 [data-pin-point] .pp-toolbar-error {
 	color: #e74c3c;
 	font-size: 12px;
