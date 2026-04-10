@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AdminKeyModal } from "./components/AdminKeyModal";
 import { ClickInterceptLayer } from "./components/ClickInterceptLayer";
 import { CommentPopover } from "./components/CommentPopover";
 import { FeedbackToolbar } from "./components/FeedbackToolbar";
 import { PinMarker } from "./components/PinMarker";
-import { useQueryParamDetector } from "./hooks/useQueryParamDetector";
+import { ShareLinkButton } from "./components/ShareLinkButton";
+import { useAuth } from "./hooks/useAuth";
 import type { FeedbackOverlayProps, PendingPin, PinComment } from "./types";
 import { resolveAnchor } from "./utils/resolveAnchor";
 import { restorePosition } from "./utils/restorePosition";
@@ -13,25 +15,27 @@ export function FeedbackOverlay({
 	onCommentsFetch,
 	onCommentDelete,
 	onCommentUpdate,
+	onAdminValidate,
+	onShareLinkCreate,
 	children,
 }: FeedbackOverlayProps) {
-	// TODO(Group 9): replace hardcoded query param + empty auth headers with
-	// real auth integration via the useAuth hook.
-	const isActive = useQueryParamDetector("feedback");
+	const { auth, authHeaders, setAdminKey } = useAuth();
 	const [comments, setComments] = useState<PinComment[]>([]);
 	const [pendingPin, setPendingPin] = useState<PendingPin | null>(null);
 	const [expandedPinId, setExpandedPinId] = useState<string | null>(null);
 	const [fetchError, setFetchError] = useState<string | null>(null);
+	const [pinMode, setPinMode] = useState(false);
+	const [adminModalOpen, setAdminModalOpen] = useState(false);
 	const hasFetched = useRef(false);
 
 	useEffect(() => {
-		if (!isActive || hasFetched.current) return;
+		if (hasFetched.current) return;
 		hasFetched.current = true;
 
-		onCommentsFetch({})
+		onCommentsFetch(authHeaders)
 			.then((data) => setComments([...data]))
 			.catch(() => setFetchError("Couldn't load comments."));
-	}, [isActive, onCommentsFetch]);
+	}, [onCommentsFetch, authHeaders]);
 
 	const handleClick = useCallback((clientX: number, clientY: number) => {
 		setExpandedPinId(null);
@@ -66,11 +70,12 @@ export function FeedbackOverlay({
 				createdAt: new Date().toISOString(),
 			};
 
-			await onCommentCreate(comment, {});
+			await onCommentCreate(comment, authHeaders);
 			setComments((prev) => [...prev, comment]);
 			setPendingPin(null);
+			setPinMode(false);
 		},
-		[pendingPin, onCommentCreate],
+		[pendingPin, onCommentCreate, authHeaders],
 	);
 
 	const handleCancel = useCallback(() => {
@@ -80,30 +85,58 @@ export function FeedbackOverlay({
 	const handleDelete = useCallback(
 		async (id: string) => {
 			if (!onCommentDelete) return;
-			await onCommentDelete(id, {});
+			await onCommentDelete(id, authHeaders);
 			setComments((prev) => prev.filter((c) => c.id !== id));
 			setExpandedPinId(null);
 		},
-		[onCommentDelete],
+		[onCommentDelete, authHeaders],
 	);
 
 	const handleUpdate = useCallback(
 		async (id: string, content: string) => {
 			if (!onCommentUpdate) return;
-			const updated = await onCommentUpdate(id, content, {});
+			const updated = await onCommentUpdate(id, content, authHeaders);
 			setComments((prev) => prev.map((c) => (c.id === id ? updated : c)));
 		},
-		[onCommentUpdate],
+		[onCommentUpdate, authHeaders],
 	);
 
-	if (!isActive) {
-		return <>{children}</>;
-	}
+	const handlePinModeToggle = useCallback(() => {
+		setPinMode((prev) => {
+			const next = !prev;
+			if (!next) setPendingPin(null);
+			return next;
+		});
+	}, []);
+
+	const handleAdminValidate = useCallback(
+		async (secret: string) => {
+			if (!onAdminValidate) return false;
+			return onAdminValidate(secret);
+		},
+		[onAdminValidate],
+	);
+
+	const handleAdminSuccess = useCallback(
+		(secret: string) => {
+			setAdminKey(secret);
+			setAdminModalOpen(false);
+		},
+		[setAdminKey],
+	);
+
+	const handleShareCreate = useCallback(
+		async (label?: string, ttl?: number) => {
+			if (!onShareLinkCreate) throw new Error("onShareLinkCreate not provided");
+			return onShareLinkCreate(label, ttl, authHeaders);
+		},
+		[onShareLinkCreate, authHeaders],
+	);
 
 	return (
 		<div data-pin-point="">
 			{children}
-			<ClickInterceptLayer onClick={handleClick} />
+			{pinMode && <ClickInterceptLayer onClick={handleClick} />}
 
 			{comments.map((comment, index) => {
 				const pos = restorePosition(comment.anchor);
@@ -172,9 +205,26 @@ export function FeedbackOverlay({
 			)}
 
 			<FeedbackToolbar
+				auth={auth}
 				commentCount={comments.length}
+				pinModeActive={pinMode}
+				onPinModeToggle={handlePinModeToggle}
+				onAdminKeyOpen={() => setAdminModalOpen(true)}
+				shareButton={
+					auth.role === "admin" && onShareLinkCreate ? (
+						<ShareLinkButton onCreate={handleShareCreate} />
+					) : undefined
+				}
 				error={fetchError ?? undefined}
 			/>
+
+			{adminModalOpen && (
+				<AdminKeyModal
+					onValidate={handleAdminValidate}
+					onSuccess={handleAdminSuccess}
+					onClose={() => setAdminModalOpen(false)}
+				/>
+			)}
 		</div>
 	);
 }
