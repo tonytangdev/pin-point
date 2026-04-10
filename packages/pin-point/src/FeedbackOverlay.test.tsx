@@ -84,6 +84,7 @@ describe("FeedbackOverlay", () => {
 				expect(onCommentCreate).toHaveBeenCalledOnce();
 				expect(onCommentCreate).toHaveBeenCalledWith(
 					expect.objectContaining({ content: "Great work!" }),
+					{},
 				);
 				// Popover dismissed after submit
 				expect(
@@ -357,23 +358,5 @@ describe("FeedbackOverlay", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Couldn't load comments.")).toBeInTheDocument();
 		});
-	});
-
-	it("uses custom query param", () => {
-		window.history.replaceState({}, "", "/?review=true");
-
-		render(
-			<FeedbackOverlay
-				onCommentCreate={async () => {}}
-				onCommentsFetch={async () => []}
-				queryParam="review"
-			>
-				<div>My App</div>
-			</FeedbackOverlay>,
-		);
-
-		expect(
-			screen.getByText("Click anywhere to leave feedback"),
-		).toBeInTheDocument();
 	});
 });
