@@ -10,6 +10,8 @@ import {
 import type { TokenRepository } from "../repositories/token-repo.js";
 import { CommentService } from "../services/comment-service.js";
 
+type AuthFailureReason = "unauthorized" | "forbidden";
+
 const getAuth = (c: HonoContext) =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
@@ -19,6 +21,34 @@ const getAuth = (c: HonoContext) =>
 			adminSecret: config.adminSecret,
 		});
 	});
+
+const requireAuthed = (c: HonoContext) =>
+	Effect.gen(function* () {
+		const auth = yield* getAuth(c);
+		if (auth.role === "anonymous") {
+			return { _tag: "fail" as const, reason: "unauthorized" as const };
+		}
+		return { _tag: "ok" as const, auth };
+	});
+
+const requireAdmin = (c: HonoContext) =>
+	Effect.gen(function* () {
+		const auth = yield* getAuth(c);
+		if (auth.role === "anonymous") {
+			return { _tag: "fail" as const, reason: "unauthorized" as const };
+		}
+		if (auth.role !== "admin") {
+			return { _tag: "fail" as const, reason: "forbidden" as const };
+		}
+		return { _tag: "ok" as const, auth };
+	});
+
+const authFailureResponse = (c: HonoContext, reason: AuthFailureReason) => {
+	if (reason === "unauthorized") {
+		return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+	}
+	return c.json({ error: "Admin required", code: "FORBIDDEN" }, 403);
+};
 
 export const makeCommentRoutes = (
 	layer: Layer.Layer<CommentService | TokenRepository>,
@@ -41,11 +71,12 @@ export const makeCommentRoutes = (
 
 		const result = await runEffect(
 			Effect.gen(function* () {
-				const auth = yield* getAuth(c);
-				if (auth.role === "anonymous") {
-					return { _tag: "unauthorized" as const };
+				const guard = yield* requireAuthed(c);
+				if (guard._tag === "fail") {
+					return { _tag: "authFail" as const, reason: guard.reason };
 				}
-				const tokenId = auth.role === "tokenHolder" ? auth.tokenId : null;
+				const tokenId =
+					guard.auth.role === "tokenHolder" ? guard.auth.tokenId : null;
 				const service = yield* CommentService;
 				const created = yield* service.create(decoded.right, { tokenId });
 				return { _tag: "ok" as const, data: created };
@@ -53,13 +84,13 @@ export const makeCommentRoutes = (
 				Effect.catchTag("DatabaseError", () =>
 					Effect.succeed({ _tag: "dbError" as const }),
 				),
-				Effect.catchAll(() => Effect.succeed({ _tag: "configError" as const })),
+				Effect.catchAll(() => Effect.succeed({ _tag: "dbError" as const })),
 			),
 		);
 
-		if (result._tag === "unauthorized")
-			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
-		if (result._tag === "configError" || result._tag === "dbError")
+		if (result._tag === "authFail")
+			return authFailureResponse(c, result.reason);
+		if (result._tag === "dbError")
 			return c.json({ error: "Internal server error", code: "DB_ERROR" }, 500);
 		return c.json(result.data, 201);
 	});
@@ -83,12 +114,9 @@ export const makeCommentRoutes = (
 		const id = c.req.param("id");
 		const result = await runEffect(
 			Effect.gen(function* () {
-				const auth = yield* getAuth(c);
-				if (auth.role === "anonymous") {
-					return { _tag: "unauthorized" as const };
-				}
-				if (auth.role !== "admin") {
-					return { _tag: "forbidden" as const };
+				const guard = yield* requireAdmin(c);
+				if (guard._tag === "fail") {
+					return { _tag: "authFail" as const, reason: guard.reason };
 				}
 				const service = yield* CommentService;
 				yield* service.delete(id);
@@ -103,13 +131,12 @@ export const makeCommentRoutes = (
 				Effect.catchAll(() => Effect.succeed({ _tag: "dbError" as const })),
 			),
 		);
-		if (result._tag === "unauthorized")
-			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
-		if (result._tag === "forbidden")
-			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403);
-		if (result._tag === "notFound") return c.json({ error: "Not found" }, 404);
+		if (result._tag === "authFail")
+			return authFailureResponse(c, result.reason);
+		if (result._tag === "notFound")
+			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		if (result._tag === "dbError")
-			return c.json({ error: "Internal server error" }, 500);
+			return c.json({ error: "Internal server error", code: "DB_ERROR" }, 500);
 		return c.body(null, 204);
 	});
 
@@ -118,17 +145,17 @@ export const makeCommentRoutes = (
 		const body = await c.req.json();
 		const decoded = Schema.decodeUnknownEither(UpdateCommentSchema)(body);
 		if (decoded._tag === "Left") {
-			return c.json({ error: "Invalid request body" }, 400);
+			return c.json(
+				{ error: "Invalid request body", code: "BAD_REQUEST" },
+				400,
+			);
 		}
 
 		const result = await runEffect(
 			Effect.gen(function* () {
-				const auth = yield* getAuth(c);
-				if (auth.role === "anonymous") {
-					return { _tag: "unauthorized" as const };
-				}
-				if (auth.role !== "admin") {
-					return { _tag: "forbidden" as const };
+				const guard = yield* requireAdmin(c);
+				if (guard._tag === "fail") {
+					return { _tag: "authFail" as const, reason: guard.reason };
 				}
 				const service = yield* CommentService;
 				const updated = yield* service.update(id, decoded.right.content);
@@ -143,13 +170,12 @@ export const makeCommentRoutes = (
 				Effect.catchAll(() => Effect.succeed({ _tag: "dbError" as const })),
 			),
 		);
-		if (result._tag === "unauthorized")
-			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
-		if (result._tag === "forbidden")
-			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403);
-		if (result._tag === "notFound") return c.json({ error: "Not found" }, 404);
+		if (result._tag === "authFail")
+			return authFailureResponse(c, result.reason);
+		if (result._tag === "notFound")
+			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		if (result._tag === "dbError")
-			return c.json({ error: "Internal server error" }, 500);
+			return c.json({ error: "Internal server error", code: "DB_ERROR" }, 500);
 		return c.json(result.data, 200);
 	});
 
