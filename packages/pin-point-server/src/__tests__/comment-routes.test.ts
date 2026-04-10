@@ -31,6 +31,7 @@ const CommentRepoTest = Layer.succeed(CommentRepository, {
 		stored[idx] = { ...stored[idx], content };
 		return Effect.succeed(stored[idx]);
 	},
+	deleteOlderThan: () => Effect.succeed(0),
 });
 
 const TokenRepoTest = Layer.succeed(TokenRepository, {
