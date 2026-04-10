@@ -37,6 +37,20 @@ const TestEnvLive = Layer.mergeAll(TestMainLive, TestMigratorLive).pipe(
 	Layer.provide(NodeContext.layer),
 );
 
+const ADMIN_HEADERS = {
+	"Content-Type": "application/json",
+	"X-Pin-Admin": "e2e-admin-secret",
+} as const;
+
+const sampleCommentBody = (
+	overrides: Partial<{ url: string; content: string }> = {},
+) => ({
+	url: overrides.url ?? "https://example.com",
+	content: overrides.content ?? "Hello",
+	anchor: { selector: "#x", xPercent: 50, yPercent: 50 },
+	viewport: { width: 1024 },
+});
+
 describe("E2E", () => {
 	const app = createApp(Layer.orDie(TestMainLive));
 	let scope: Scope.CloseableScope;
@@ -64,10 +78,7 @@ describe("E2E", () => {
 	it("full comment lifecycle: create, list, filter, update, delete", async () => {
 		const createRes1 = await app.request("/comments", {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Pin-Admin": "e2e-admin-secret",
-			},
+			headers: ADMIN_HEADERS,
 			body: JSON.stringify({
 				url: "https://a.com",
 				content: "Comment A",
@@ -80,10 +91,7 @@ describe("E2E", () => {
 
 		const createRes2 = await app.request("/comments", {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Pin-Admin": "e2e-admin-secret",
-			},
+			headers: ADMIN_HEADERS,
 			body: JSON.stringify({
 				url: "https://b.com",
 				content: "Comment B",
@@ -107,10 +115,7 @@ describe("E2E", () => {
 		// Update
 		const patchRes = await app.request(`/comments/${comment1.id}`, {
 			method: "PATCH",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Pin-Admin": "e2e-admin-secret",
-			},
+			headers: ADMIN_HEADERS,
 			body: JSON.stringify({ content: "Comment A Updated" }),
 		});
 		expect(patchRes.status).toBe(200);
@@ -121,10 +126,7 @@ describe("E2E", () => {
 		// Update non-existent
 		const patchNotFound = await app.request("/comments/non-existent", {
 			method: "PATCH",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Pin-Admin": "e2e-admin-secret",
-			},
+			headers: ADMIN_HEADERS,
 			body: JSON.stringify({ content: "nope" }),
 		});
 		expect(patchNotFound.status).toBe(404);
@@ -145,5 +147,156 @@ describe("E2E", () => {
 			headers: { "X-Pin-Admin": "e2e-admin-secret" },
 		});
 		expect(deleteAgain.status).toBe(404);
+	});
+
+	it("admin creates token, token posts comment, comment row carries tokenId", async () => {
+		const createTokenRes = await app.request("/admin/tokens", {
+			method: "POST",
+			headers: ADMIN_HEADERS,
+			body: JSON.stringify({ label: "e2e-token" }),
+		});
+		expect(createTokenRes.status).toBe(201);
+		const token = await createTokenRes.json();
+		expect(typeof token.id).toBe("string");
+
+		const createCommentRes = await app.request("/comments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Token": token.id,
+			},
+			body: JSON.stringify(
+				sampleCommentBody({ url: "https://token.com", content: "via token" }),
+			),
+		});
+		expect(createCommentRes.status).toBe(201);
+		const created = await createCommentRes.json();
+
+		const listRes = await app.request("/comments?url=https://token.com");
+		expect(listRes.status).toBe(200);
+		const list = await listRes.json();
+		expect(list.length).toBe(1);
+		expect(list[0].id).toBe(created.id);
+		expect(list[0].tokenId).toBe(token.id);
+	});
+
+	it("revoked token cannot create comments", async () => {
+		const createTokenRes = await app.request("/admin/tokens", {
+			method: "POST",
+			headers: ADMIN_HEADERS,
+			body: JSON.stringify({}),
+		});
+		expect(createTokenRes.status).toBe(201);
+		const token = await createTokenRes.json();
+
+		const firstPost = await app.request("/comments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Token": token.id,
+			},
+			body: JSON.stringify(sampleCommentBody({ url: "https://revoke.com" })),
+		});
+		expect(firstPost.status).toBe(201);
+
+		const revokeRes = await app.request(`/admin/tokens/${token.id}`, {
+			method: "DELETE",
+			headers: { "X-Pin-Admin": "e2e-admin-secret" },
+		});
+		expect(revokeRes.status).toBe(204);
+
+		const blockedPost = await app.request("/comments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Token": token.id,
+			},
+			body: JSON.stringify(sampleCommentBody({ url: "https://revoke.com" })),
+		});
+		expect(blockedPost.status).toBe(401);
+	});
+
+	it("expired token cannot create comments", async () => {
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sql = yield* SqlClient.SqlClient;
+				yield* sql`
+					INSERT INTO tokens (id, label, created_at, expires_at, revoked_at)
+					VALUES ('ft_expired', null, NOW(), NOW() - INTERVAL '1 minute', null)
+				`;
+			}).pipe(Effect.provide(TestSqlLive)),
+		);
+
+		const res = await app.request("/comments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Token": "ft_expired",
+			},
+			body: JSON.stringify(sampleCommentBody({ url: "https://expired.com" })),
+		});
+		expect(res.status).toBe(401);
+	});
+
+	it("admin can delete a comment created by a token holder", async () => {
+		const createTokenRes = await app.request("/admin/tokens", {
+			method: "POST",
+			headers: ADMIN_HEADERS,
+			body: JSON.stringify({}),
+		});
+		expect(createTokenRes.status).toBe(201);
+		const token = await createTokenRes.json();
+
+		const createCommentRes = await app.request("/comments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Token": token.id,
+			},
+			body: JSON.stringify(sampleCommentBody({ url: "https://admindel.com" })),
+		});
+		expect(createCommentRes.status).toBe(201);
+		const comment = await createCommentRes.json();
+
+		const deleteRes = await app.request(`/comments/${comment.id}`, {
+			method: "DELETE",
+			headers: { "X-Pin-Admin": "e2e-admin-secret" },
+		});
+		expect(deleteRes.status).toBe(204);
+
+		const listRes = await app.request("/comments?url=https://admindel.com");
+		const list = await listRes.json();
+		expect(list.length).toBe(0);
+	});
+
+	it("token holder cannot delete comments (admin-only route)", async () => {
+		const createTokenRes = await app.request("/admin/tokens", {
+			method: "POST",
+			headers: ADMIN_HEADERS,
+			body: JSON.stringify({}),
+		});
+		expect(createTokenRes.status).toBe(201);
+		const token = await createTokenRes.json();
+
+		const createCommentRes = await app.request("/comments", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Token": token.id,
+			},
+			body: JSON.stringify(sampleCommentBody({ url: "https://tokendel.com" })),
+		});
+		expect(createCommentRes.status).toBe(201);
+		const comment = await createCommentRes.json();
+
+		const deleteRes = await app.request(`/comments/${comment.id}`, {
+			method: "DELETE",
+			headers: { "X-Pin-Token": token.id },
+		});
+		expect(deleteRes.status).toBe(403);
+
+		const listRes = await app.request("/comments?url=https://tokendel.com");
+		const list = await listRes.json();
+		expect(list.length).toBe(1);
 	});
 });
