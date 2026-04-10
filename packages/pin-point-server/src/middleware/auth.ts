@@ -1,4 +1,6 @@
 import { Effect, Redacted } from "effect";
+import type { Context as HonoContext } from "hono";
+import { AppConfig } from "../config.js";
 import type { DatabaseError } from "../errors.js";
 import { TokenRepository } from "../repositories/token-repo.js";
 
@@ -39,3 +41,46 @@ export const resolveAuth = (
 
 		return { role: "anonymous" } as const;
 	});
+
+export type AuthFailureReason = "unauthorized" | "forbidden";
+
+export const getAuth = (c: HonoContext) =>
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		return yield* resolveAuth({
+			adminHeader: c.req.header("X-Pin-Admin"),
+			tokenHeader: c.req.header("X-Pin-Token"),
+			adminSecret: config.adminSecret,
+		});
+	});
+
+export const requireAuthed = (c: HonoContext) =>
+	Effect.gen(function* () {
+		const auth = yield* getAuth(c);
+		if (auth.role === "anonymous") {
+			return { _tag: "fail" as const, reason: "unauthorized" as const };
+		}
+		return { _tag: "ok" as const, auth };
+	});
+
+export const requireAdmin = (c: HonoContext) =>
+	Effect.gen(function* () {
+		const auth = yield* getAuth(c);
+		if (auth.role === "anonymous") {
+			return { _tag: "fail" as const, reason: "unauthorized" as const };
+		}
+		if (auth.role !== "admin") {
+			return { _tag: "fail" as const, reason: "forbidden" as const };
+		}
+		return { _tag: "ok" as const, auth };
+	});
+
+export const authFailureResponse = (
+	c: HonoContext,
+	reason: AuthFailureReason,
+) => {
+	if (reason === "unauthorized") {
+		return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+	}
+	return c.json({ error: "Admin required", code: "FORBIDDEN" }, 403);
+};

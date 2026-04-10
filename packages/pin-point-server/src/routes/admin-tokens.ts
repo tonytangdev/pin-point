@@ -1,41 +1,10 @@
 import { Effect, type Layer, Option, Schema } from "effect";
-import { Hono, type Context as HonoContext } from "hono";
+import { Hono } from "hono";
 import { AppConfig } from "../config.js";
-import { resolveAuth } from "../middleware/auth.js";
+import { authFailureResponse, requireAdmin } from "../middleware/auth.js";
 import { CreateTokenSchema } from "../models/token.js";
 import type { TokenRepository } from "../repositories/token-repo.js";
 import { TokenService } from "../services/token-service.js";
-
-type AuthFailureReason = "unauthorized" | "forbidden";
-
-const getAuth = (c: HonoContext) =>
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-		return yield* resolveAuth({
-			adminHeader: c.req.header("X-Pin-Admin"),
-			tokenHeader: c.req.header("X-Pin-Token"),
-			adminSecret: config.adminSecret,
-		});
-	});
-
-const requireAdmin = (c: HonoContext) =>
-	Effect.gen(function* () {
-		const auth = yield* getAuth(c);
-		if (auth.role === "anonymous") {
-			return { _tag: "fail" as const, reason: "unauthorized" as const };
-		}
-		if (auth.role !== "admin") {
-			return { _tag: "fail" as const, reason: "forbidden" as const };
-		}
-		return { _tag: "ok" as const, auth };
-	});
-
-const authFailureResponse = (c: HonoContext, reason: AuthFailureReason) => {
-	if (reason === "unauthorized") {
-		return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
-	}
-	return c.json({ error: "Admin required", code: "FORBIDDEN" }, 403);
-};
 
 export const makeAdminTokenRoutes = (
 	layer: Layer.Layer<TokenService | TokenRepository>,
