@@ -6,6 +6,7 @@ services:
       POSTGRES_DB: ${PG_DATABASE:-pinpoint}
       POSTGRES_USER: ${PG_USERNAME:-pinpoint}
       POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD required}
+      PGDATA: /var/lib/postgresql/18/docker
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
