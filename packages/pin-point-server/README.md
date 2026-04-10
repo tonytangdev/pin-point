@@ -1,20 +1,17 @@
 # pin-point-server
 
-Backend server for [pin-point](https://www.npmjs.com/package/pin-point). Stores and serves feedback comments so they persist across sessions.
+Backend server for [pin-point](https://www.npmjs.com/package/pin-point). Stores and serves feedback comments so they persist across sessions. Backed by Postgres.
 
 ## Quick Start
 
-```bash
-npx pin-point-server
-```
-
-Server starts on `http://localhost:3000`. Comments are stored in a local SQLite file (`./pin-point.db`).
-
-### Docker
+Bring up Postgres, then start the server:
 
 ```bash
-docker run -p 3000:3000 -v pin-point-data:/data pin-point-server
+docker compose up -d
+ADMIN_SECRET=dev-secret PG_DATABASE=pinpoint PG_PASSWORD=pinpoint npx pin-point-server
 ```
+
+Server starts on `http://localhost:3000` and runs migrations on boot. The bundled `docker-compose.yml` provisions a `postgres:18` instance with db/user/password all set to `pinpoint`.
 
 ## Connect to pin-point
 
@@ -103,7 +100,11 @@ All via environment variables:
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
 | `HOST` | `0.0.0.0` | Bind address |
-| `DATABASE_URL` | `./pin-point.db` | SQLite file path |
+| `PG_HOST` | `localhost` | Postgres host |
+| `PG_PORT` | `5432` | Postgres port |
+| `PG_DATABASE` | _(required)_ | Postgres database name |
+| `PG_USERNAME` | `pinpoint` | Postgres user |
+| `PG_PASSWORD` | _(required)_ | Postgres password |
 | `CORS_ORIGIN` | `*` | Allowed CORS origin(s) |
 | `ADMIN_SECRET` | _(required)_ | Shared secret for admin endpoints. Sent via `X-Pin-Admin` header to mint share-link tokens and perform admin operations. |
 | `PIN_DEFAULT_TOKEN_TTL_HOURS` | _(unlimited)_ | Default TTL (in hours) applied to newly minted share-link tokens when the caller omits `expiresInHours`. Unset = tokens never expire by default. |
