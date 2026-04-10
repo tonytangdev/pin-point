@@ -27,15 +27,18 @@ const API = 'http://localhost:3000';
 function App() {
   return (
     <FeedbackOverlay
-      onCommentCreate={async (comment) => {
+      onCommentCreate={async (comment, authHeaders) => {
         await fetch(`${API}/comments`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify(comment),
         });
       }}
-      onCommentsFetch={async () => {
-        const res = await fetch(`${API}/comments?url=${location.pathname}`);
+      onCommentsFetch={async (authHeaders) => {
+        const res = await fetch(
+          `${API}/comments?url=${location.pathname}`,
+          { headers: authHeaders },
+        );
         return res.json();
       }}
     >
@@ -45,16 +48,29 @@ function App() {
 }
 ```
 
-Activate feedback mode by adding `?feedback=true` to the URL.
+The toolbar is always visible. To leave feedback, users need a feedback link (`?pin-token=<id>`) or an admin key. See the pin-point README for the full callback list.
 
 ## API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/comments` | Create a comment |
-| `GET` | `/comments` | List all comments |
-| `GET` | `/comments?url=/page` | List comments for a specific page |
-| `DELETE` | `/comments/:id` | Delete a comment |
+### Auth headers
+
+| Header | Description |
+|--------|-------------|
+| `X-Pin-Admin: <secret>` | Admin authentication (matches `ADMIN_SECRET` env var) |
+| `X-Pin-Token: <ft_...>` | Feedback token (minted via `POST /admin/tokens`) |
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/comments` | public | List all comments |
+| `GET` | `/comments?url=/page` | public | List comments for a specific page |
+| `POST` | `/comments` | token or admin | Create a comment |
+| `PATCH` | `/comments/:id` | admin | Update a comment's content |
+| `DELETE` | `/comments/:id` | admin | Delete a comment |
+| `POST` | `/admin/tokens` | admin | Mint a feedback-link token |
+| `GET` | `/admin/tokens` | admin | List active feedback-link tokens |
+| `DELETE` | `/admin/tokens/:id` | admin | Revoke a feedback-link token |
 
 ### POST /comments
 
