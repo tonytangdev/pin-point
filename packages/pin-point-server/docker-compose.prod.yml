@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DATABASE:-pinpoint}
+      POSTGRES_USER: ${PG_USERNAME:-pinpoint}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USERNAME:-pinpoint} -d ${PG_DATABASE:-pinpoint}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    image: ghcr.io/tonytangdev/pin-point-server:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    pull_policy: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_DATABASE: ${PG_DATABASE:-pinpoint}
+      PG_USERNAME: ${PG_USERNAME:-pinpoint}
+      PG_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD required}
+      ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      PIN_DEFAULT_TOKEN_TTL_HOURS: ${PIN_DEFAULT_TOKEN_TTL_HOURS:-}
+      PIN_COMMENT_RETENTION_DAYS: ${PIN_COMMENT_RETENTION_DAYS:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  pgdata:
