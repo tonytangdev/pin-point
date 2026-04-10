@@ -107,4 +107,48 @@ describe("TokenRepoLive", () => {
 			assert(found === null);
 		}).pipe(Effect.provide(TestRepoLive)),
 	);
+
+	it.effect("revoke twice returns true then false", () =>
+		Effect.gen(function* () {
+			const repo = yield* TokenRepository;
+			const token: Token = {
+				id: "ft_test_revoke_twice",
+				label: null,
+				createdAt: new Date().toISOString(),
+				expiresAt: null,
+				revokedAt: null,
+			};
+			yield* repo.create(token);
+			const first = yield* repo.revoke("ft_test_revoke_twice");
+			assert(first === true);
+			const second = yield* repo.revoke("ft_test_revoke_twice");
+			assert(second === false);
+		}).pipe(Effect.provide(TestRepoLive)),
+	);
+
+	it.effect("findAll returns tokens sorted by created_at DESC", () =>
+		Effect.gen(function* () {
+			const repo = yield* TokenRepository;
+			const older: Token = {
+				id: "ft_test_older",
+				label: "older",
+				createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+				expiresAt: null,
+				revokedAt: null,
+			};
+			const newer: Token = {
+				id: "ft_test_newer",
+				label: "newer",
+				createdAt: new Date().toISOString(),
+				expiresAt: null,
+				revokedAt: null,
+			};
+			yield* repo.create(older);
+			yield* repo.create(newer);
+			const all = yield* repo.findAll();
+			assert(all.length === 2);
+			assert(all[0]?.id === "ft_test_newer");
+			assert(all[1]?.id === "ft_test_older");
+		}).pipe(Effect.provide(TestRepoLive)),
+	);
 });
