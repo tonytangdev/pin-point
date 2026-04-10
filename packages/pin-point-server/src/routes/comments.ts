@@ -1,38 +1,67 @@
 import { Effect, type Layer, Schema } from "effect";
-import { Hono } from "hono";
+import { Hono, type Context as HonoContext } from "hono";
+import { AppConfig } from "../config.js";
+import { resolveAuth } from "../middleware/auth.js";
 import {
 	CreateCommentSchema,
 	type PinComment,
 	UpdateCommentSchema,
 } from "../models/comment.js";
+import type { TokenRepository } from "../repositories/token-repo.js";
 import { CommentService } from "../services/comment-service.js";
 
-export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
+const getAuth = (c: HonoContext) =>
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		return yield* resolveAuth({
+			adminHeader: c.req.header("X-Pin-Admin"),
+			tokenHeader: c.req.header("X-Pin-Token"),
+			adminSecret: config.adminSecret,
+		});
+	});
+
+export const makeCommentRoutes = (
+	layer: Layer.Layer<CommentService | TokenRepository>,
+) => {
 	const app = new Hono();
 
-	const runEffect = <A>(effect: Effect.Effect<A, never, CommentService>) =>
-		Effect.runPromise(effect.pipe(Effect.provide(layer)));
+	const runEffect = <A>(
+		effect: Effect.Effect<A, never, CommentService | TokenRepository>,
+	) => Effect.runPromise(effect.pipe(Effect.provide(layer)));
 
 	app.post("/comments", async (c) => {
 		const body = await c.req.json();
 		const decoded = Schema.decodeUnknownEither(CreateCommentSchema)(body);
 		if (decoded._tag === "Left") {
-			return c.json({ error: "Invalid request body" }, 400);
+			return c.json(
+				{ error: "Invalid request body", code: "BAD_REQUEST" },
+				400,
+			);
 		}
 
 		const result = await runEffect(
 			Effect.gen(function* () {
+				const auth = yield* getAuth(c);
+				if (auth.role === "anonymous") {
+					return { _tag: "unauthorized" as const };
+				}
+				const tokenId = auth.role === "tokenHolder" ? auth.tokenId : null;
 				const service = yield* CommentService;
-				return yield* service.create(decoded.right);
+				const created = yield* service.create(decoded.right, { tokenId });
+				return { _tag: "ok" as const, data: created };
 			}).pipe(
 				Effect.catchTag("DatabaseError", () =>
-					Effect.succeed({ _error: true as const }),
+					Effect.succeed({ _tag: "dbError" as const }),
 				),
+				Effect.catchAll(() => Effect.succeed({ _tag: "configError" as const })),
 			),
 		);
-		if ("_error" in result)
-			return c.json({ error: "Internal server error" }, 500);
-		return c.json(result, 201);
+
+		if (result._tag === "unauthorized")
+			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+		if (result._tag === "configError" || result._tag === "dbError")
+			return c.json({ error: "Internal server error", code: "DB_ERROR" }, 500);
+		return c.json(result.data, 201);
 	});
 
 	app.get("/comments", async (c) => {
@@ -54,6 +83,13 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
 		const id = c.req.param("id");
 		const result = await runEffect(
 			Effect.gen(function* () {
+				const auth = yield* getAuth(c);
+				if (auth.role === "anonymous") {
+					return { _tag: "unauthorized" as const };
+				}
+				if (auth.role !== "admin") {
+					return { _tag: "forbidden" as const };
+				}
 				const service = yield* CommentService;
 				yield* service.delete(id);
 				return { _tag: "ok" as const };
@@ -64,8 +100,13 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
 				Effect.catchTag("DatabaseError", () =>
 					Effect.succeed({ _tag: "dbError" as const }),
 				),
+				Effect.catchAll(() => Effect.succeed({ _tag: "dbError" as const })),
 			),
 		);
+		if (result._tag === "unauthorized")
+			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+		if (result._tag === "forbidden")
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403);
 		if (result._tag === "notFound") return c.json({ error: "Not found" }, 404);
 		if (result._tag === "dbError")
 			return c.json({ error: "Internal server error" }, 500);
@@ -82,6 +123,13 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
 
 		const result = await runEffect(
 			Effect.gen(function* () {
+				const auth = yield* getAuth(c);
+				if (auth.role === "anonymous") {
+					return { _tag: "unauthorized" as const };
+				}
+				if (auth.role !== "admin") {
+					return { _tag: "forbidden" as const };
+				}
 				const service = yield* CommentService;
 				const updated = yield* service.update(id, decoded.right.content);
 				return { _tag: "ok" as const, data: updated };
@@ -92,8 +140,13 @@ export const makeCommentRoutes = (layer: Layer.Layer<CommentService>) => {
 				Effect.catchTag("DatabaseError", () =>
 					Effect.succeed({ _tag: "dbError" as const }),
 				),
+				Effect.catchAll(() => Effect.succeed({ _tag: "dbError" as const })),
 			),
 		);
+		if (result._tag === "unauthorized")
+			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
+		if (result._tag === "forbidden")
+			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403);
 		if (result._tag === "notFound") return c.json({ error: "Not found" }, 404);
 		if (result._tag === "dbError")
 			return c.json({ error: "Internal server error" }, 500);

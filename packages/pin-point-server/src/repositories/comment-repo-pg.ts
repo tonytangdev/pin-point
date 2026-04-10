@@ -23,6 +23,18 @@ const PinCommentRowSchema = Schema.Struct({
 		Schema.propertySignature,
 		Schema.fromKey("created_at"),
 	),
+	tokenId: Schema.NullOr(Schema.String).pipe(
+		Schema.propertySignature,
+		Schema.fromKey("token_id"),
+	),
+	authorName: Schema.NullOr(Schema.String).pipe(
+		Schema.propertySignature,
+		Schema.fromKey("author_name"),
+	),
+	authorId: Schema.NullOr(Schema.String).pipe(
+		Schema.propertySignature,
+		Schema.fromKey("author_id"),
+	),
 });
 
 const decodeRow = (row: unknown) =>
@@ -37,9 +49,10 @@ export const CommentRepoLive = Layer.effect(
 			create: (comment: PinComment) =>
 				Effect.gen(function* () {
 					yield* sql`
-            INSERT INTO comments (id, url, content, anchor, viewport, created_at)
+            INSERT INTO comments (id, url, content, anchor, viewport, created_at, token_id, author_name, author_id)
             VALUES (${comment.id}, ${comment.url}, ${comment.content},
-                    ${comment.anchor}, ${comment.viewport}, ${comment.createdAt})
+                    ${comment.anchor}, ${comment.viewport}, ${comment.createdAt},
+                    ${comment.tokenId}, ${comment.authorName}, ${comment.authorId})
           `;
 					return comment;
 				}).pipe(

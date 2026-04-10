@@ -17,6 +17,9 @@ export const PinCommentSchema = Schema.Struct({
 	anchor: AnchorSchema,
 	viewport: ViewportSchema,
 	createdAt: Schema.String,
+	tokenId: Schema.NullOr(Schema.String),
+	authorName: Schema.NullOr(Schema.String),
+	authorId: Schema.NullOr(Schema.String),
 });
 
 export type PinComment = typeof PinCommentSchema.Type;

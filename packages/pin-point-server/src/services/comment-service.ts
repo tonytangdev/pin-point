@@ -8,6 +8,7 @@ export class CommentService extends Context.Tag("CommentService")<
 	{
 		readonly create: (
 			input: CreateComment,
+			meta: { tokenId: string | null },
 		) => Effect.Effect<PinComment, DatabaseError>;
 		readonly findAll: () => Effect.Effect<PinComment[], DatabaseError>;
 		readonly findByUrl: (
@@ -29,11 +30,14 @@ export const CommentServiceLive = Layer.effect(
 		const repo = yield* CommentRepository;
 
 		return {
-			create: (input: CreateComment) =>
+			create: (input: CreateComment, meta: { tokenId: string | null }) =>
 				Effect.gen(function* () {
 					const comment: PinComment = {
 						id: crypto.randomUUID(),
 						createdAt: new Date().toISOString(),
+						tokenId: meta.tokenId,
+						authorName: null,
+						authorId: null,
 						...input,
 					};
 					return yield* repo.create(comment);
