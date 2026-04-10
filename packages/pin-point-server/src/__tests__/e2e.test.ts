@@ -1,3 +1,5 @@
+process.env.ADMIN_SECRET = "e2e-admin-secret";
+
 import { fileURLToPath } from "node:url";
 import { NodeContext } from "@effect/platform-node";
 import { SqlClient } from "@effect/sql";
@@ -52,7 +54,7 @@ describe("E2E", () => {
 		await Effect.runPromise(
 			Effect.gen(function* () {
 				const sql = yield* SqlClient.SqlClient;
-				yield* sql`TRUNCATE TABLE comments`;
+				yield* sql`TRUNCATE TABLE comments, tokens`;
 			}).pipe(Effect.provide(TestSqlLive)),
 		);
 	});
@@ -60,7 +62,10 @@ describe("E2E", () => {
 	it("full comment lifecycle: create, list, filter, update, delete", async () => {
 		const createRes1 = await app.request("/comments", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Admin": "e2e-admin-secret",
+			},
 			body: JSON.stringify({
 				url: "https://a.com",
 				content: "Comment A",
@@ -73,7 +78,10 @@ describe("E2E", () => {
 
 		const createRes2 = await app.request("/comments", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Admin": "e2e-admin-secret",
+			},
 			body: JSON.stringify({
 				url: "https://b.com",
 				content: "Comment B",
@@ -97,7 +105,10 @@ describe("E2E", () => {
 		// Update
 		const patchRes = await app.request(`/comments/${comment1.id}`, {
 			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Admin": "e2e-admin-secret",
+			},
 			body: JSON.stringify({ content: "Comment A Updated" }),
 		});
 		expect(patchRes.status).toBe(200);
@@ -108,13 +119,17 @@ describe("E2E", () => {
 		// Update non-existent
 		const patchNotFound = await app.request("/comments/non-existent", {
 			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				"X-Pin-Admin": "e2e-admin-secret",
+			},
 			body: JSON.stringify({ content: "nope" }),
 		});
 		expect(patchNotFound.status).toBe(404);
 
 		const deleteRes = await app.request(`/comments/${comment1.id}`, {
 			method: "DELETE",
+			headers: { "X-Pin-Admin": "e2e-admin-secret" },
 		});
 		expect(deleteRes.status).toBe(204);
 
@@ -125,6 +140,7 @@ describe("E2E", () => {
 
 		const deleteAgain = await app.request(`/comments/${comment1.id}`, {
 			method: "DELETE",
+			headers: { "X-Pin-Admin": "e2e-admin-secret" },
 		});
 		expect(deleteAgain.status).toBe(404);
 	});
