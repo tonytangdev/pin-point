@@ -12,26 +12,85 @@ const mockComment: PinComment = {
 	createdAt: "2026-04-08T12:00:00Z",
 };
 
+const enterPinMode = () => {
+	fireEvent.click(screen.getByRole("button", { name: "Leave feedback" }));
+};
+
 describe("FeedbackOverlay", () => {
 	beforeEach(() => {
+		localStorage.clear();
 		window.history.replaceState({}, "", "/");
+		// Make elementFromPoint return a real element so handleClick doesn't bail
+		document.elementFromPoint = vi.fn().mockReturnValue(document.body);
+		// Deterministic UUID
+		vi.spyOn(crypto, "randomUUID").mockReturnValue(
+			"test-uuid-0000-0000-0000-000000000000",
+		);
 	});
 
-	describe("interaction", () => {
-		beforeEach(() => {
-			window.history.replaceState({}, "", "/?feedback=true");
-			// Make elementFromPoint return a real element so handleClick doesn't bail
-			document.elementFromPoint = vi.fn().mockReturnValue(document.body);
-			// Deterministic UUID
-			vi.spyOn(crypto, "randomUUID").mockReturnValue(
-				"test-uuid-0000-0000-0000-000000000000",
+	afterEach(() => {
+		vi.restoreAllMocks();
+		localStorage.clear();
+		window.history.replaceState({}, "", "/");
+		// @ts-expect-error reset jsdom stub
+		delete document.elementFromPoint;
+	});
+
+	describe("gating by role", () => {
+		it("anonymous: toolbar visible but comment button disabled", () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
 			);
+
+			expect(screen.getByText("My App")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Leave feedback" }),
+			).toBeDisabled();
 		});
 
-		afterEach(() => {
-			vi.restoreAllMocks();
-			// @ts-expect-error reset jsdom stub
-			delete document.elementFromPoint;
+		it("anonymous: click intercept layer not rendered", () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			expect(document.querySelector(".pp-intercept")).not.toBeInTheDocument();
+		});
+
+		it("tokenHolder: clicking comment button enables pin mode (click intercept renders)", async () => {
+			window.history.replaceState({}, "", "/?pin-token=ft_test");
+
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			expect(document.querySelector(".pp-intercept")).not.toBeInTheDocument();
+
+			enterPinMode();
+
+			await waitFor(() => {
+				expect(document.querySelector(".pp-intercept")).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("interaction (token holder)", () => {
+		beforeEach(() => {
+			window.history.replaceState({}, "", "/?pin-token=ft_test");
 		});
 
 		it("click-to-pin: clicking intercept layer creates pending pin", async () => {
@@ -44,6 +103,8 @@ describe("FeedbackOverlay", () => {
 				</FeedbackOverlay>,
 			);
 
+			enterPinMode();
+
 			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
 			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
 
@@ -54,7 +115,7 @@ describe("FeedbackOverlay", () => {
 			});
 		});
 
-		it("submit flow: typing and clicking Submit calls onCommentCreate and adds pin", async () => {
+		it("submit flow: calls onCommentCreate with comment + auth headers", async () => {
 			const onCommentCreate = vi.fn(async () => {});
 
 			render(
@@ -65,6 +126,8 @@ describe("FeedbackOverlay", () => {
 					<div>My App</div>
 				</FeedbackOverlay>,
 			);
+
+			enterPinMode();
 
 			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
 			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
@@ -84,12 +147,44 @@ describe("FeedbackOverlay", () => {
 				expect(onCommentCreate).toHaveBeenCalledOnce();
 				expect(onCommentCreate).toHaveBeenCalledWith(
 					expect.objectContaining({ content: "Great work!" }),
-					{},
+					{ "X-Pin-Token": "ft_test" },
 				);
 				// Popover dismissed after submit
 				expect(
 					screen.queryByPlaceholderText("Leave your feedback..."),
 				).not.toBeInTheDocument();
+			});
+		});
+
+		it("pin mode exits after successful submit", async () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			enterPinMode();
+
+			expect(document.querySelector(".pp-intercept")).toBeInTheDocument();
+
+			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+			await waitFor(() =>
+				expect(
+					screen.getByPlaceholderText("Leave your feedback..."),
+				).toBeInTheDocument(),
+			);
+
+			const textarea = screen.getByPlaceholderText("Leave your feedback...");
+			fireEvent.change(textarea, { target: { value: "Great work!" } });
+			fireEvent.click(screen.getByText("Submit"));
+
+			await waitFor(() => {
+				expect(document.querySelector(".pp-intercept")).not.toBeInTheDocument();
 			});
 		});
 
@@ -102,6 +197,8 @@ describe("FeedbackOverlay", () => {
 					<div>My App</div>
 				</FeedbackOverlay>,
 			);
+
+			enterPinMode();
 
 			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
 			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
@@ -126,7 +223,6 @@ describe("FeedbackOverlay", () => {
 			target.id = "test";
 			document.body.appendChild(target);
 
-			// Give the anchor element a non-zero bounding rect so restorePosition resolves it
 			vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
 				top: 100,
 				left: 100,
@@ -148,21 +244,18 @@ describe("FeedbackOverlay", () => {
 				</FeedbackOverlay>,
 			);
 
-			// Wait for existing pin marker to render
 			let pinMarker!: HTMLElement;
 			await waitFor(() => {
 				pinMarker = document.querySelector(".pp-pin") as HTMLElement;
 				expect(pinMarker).toBeInTheDocument();
 			});
 
-			// Click pin marker to open read popover
 			fireEvent.click(pinMarker);
 
 			await waitFor(() => {
 				expect(screen.getByText("Fix this heading")).toBeInTheDocument();
 			});
 
-			// Click pin marker again to close
 			fireEvent.click(pinMarker);
 
 			await waitFor(() => {
@@ -200,28 +293,27 @@ describe("FeedbackOverlay", () => {
 				</FeedbackOverlay>,
 			);
 
-			// Wait for pin
 			let pinMarker!: HTMLElement;
 			await waitFor(() => {
 				pinMarker = document.querySelector(".pp-pin") as HTMLElement;
 				expect(pinMarker).toBeInTheDocument();
 			});
 
-			// Open popover
 			fireEvent.click(pinMarker);
 			await waitFor(() => {
 				expect(screen.getByText("Fix this heading")).toBeInTheDocument();
 			});
 
-			// Click delete
 			fireEvent.click(screen.getByLabelText("Delete"));
-			// Confirm deletion
 			fireEvent.click(screen.getByText("Delete"));
 
 			await waitFor(() => {
-				// Pin and popover gone from the page
 				expect(document.querySelector(".pp-pin")).not.toBeInTheDocument();
 				expect(screen.queryByText("Fix this heading")).not.toBeInTheDocument();
+			});
+
+			expect(onCommentDelete).toHaveBeenCalledWith("1", {
+				"X-Pin-Token": "ft_test",
 			});
 
 			target.remove();
@@ -273,18 +365,21 @@ describe("FeedbackOverlay", () => {
 			fireEvent.click(screen.getByText("Save"));
 
 			await waitFor(() => {
-				// Updated content visible, edit mode dismissed
 				expect(screen.getByText("Updated heading")).toBeInTheDocument();
 				expect(
 					screen.queryByDisplayValue("Updated heading"),
 				).not.toBeInTheDocument();
 			});
 
+			expect(onCommentUpdate).toHaveBeenCalledWith("1", "Updated heading", {
+				"X-Pin-Token": "ft_test",
+			});
+
 			target.remove();
 		});
 	});
 
-	it("renders children when feedback mode is off", () => {
+	it("renders children and toolbar regardless of role", () => {
 		render(
 			<FeedbackOverlay
 				onCommentCreate={async () => {}}
@@ -295,35 +390,31 @@ describe("FeedbackOverlay", () => {
 		);
 
 		expect(screen.getByText("My App")).toBeInTheDocument();
+		// Toolbar always visible
 		expect(
-			screen.queryByText("Click anywhere to leave feedback"),
-		).not.toBeInTheDocument();
-	});
-
-	it("renders overlay when feedback mode is on", async () => {
-		window.history.replaceState({}, "", "/?feedback=true");
-
-		render(
-			<FeedbackOverlay
-				onCommentCreate={async () => {}}
-				onCommentsFetch={async () => []}
-			>
-				<div>My App</div>
-			</FeedbackOverlay>,
-		);
-
-		expect(screen.getByText("My App")).toBeInTheDocument();
+			screen.getByRole("button", { name: "Leave feedback" }),
+		).toBeInTheDocument();
 		expect(
-			screen.getByText("Click anywhere to leave feedback"),
+			screen.getByRole("button", { name: "Enter admin key" }),
 		).toBeInTheDocument();
 	});
 
 	it("loads and displays existing comments", async () => {
-		window.history.replaceState({}, "", "/?feedback=true");
-
 		const target = document.createElement("div");
 		target.id = "test";
 		document.body.appendChild(target);
+
+		vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+			top: 100,
+			left: 100,
+			width: 200,
+			height: 50,
+			bottom: 150,
+			right: 300,
+			x: 100,
+			y: 100,
+			toJSON: () => {},
+		} as DOMRect);
 
 		render(
 			<FeedbackOverlay
@@ -335,15 +426,13 @@ describe("FeedbackOverlay", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText("1")).toBeInTheDocument();
+			expect(document.querySelector(".pp-pin")).toBeInTheDocument();
 		});
 
 		target.remove();
 	});
 
 	it("shows error in toolbar when fetch fails", async () => {
-		window.history.replaceState({}, "", "/?feedback=true");
-
 		render(
 			<FeedbackOverlay
 				onCommentCreate={async () => {}}
@@ -357,6 +446,62 @@ describe("FeedbackOverlay", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Couldn't load comments.")).toBeInTheDocument();
+		});
+	});
+
+	describe("admin features", () => {
+		beforeEach(() => {
+			localStorage.setItem("pin-admin-key", "secret");
+		});
+
+		it("admin: share button rendered in toolbar when onShareLinkCreate provided", () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+					onShareLinkCreate={async () => ({ tokenId: "ft_x" })}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			expect(
+				screen.getByRole("button", { name: /Share for feedback/i }),
+			).toBeInTheDocument();
+		});
+
+		it("admin: share button NOT rendered if onShareLinkCreate not provided", () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			expect(
+				screen.queryByRole("button", { name: /Share for feedback/i }),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	it("clicking key icon opens admin modal", async () => {
+		render(
+			<FeedbackOverlay
+				onCommentCreate={async () => {}}
+				onCommentsFetch={async () => []}
+				onAdminValidate={async () => true}
+			>
+				<div>My App</div>
+			</FeedbackOverlay>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Enter admin key" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByText("Enter admin key")).toBeInTheDocument();
 		});
 	});
 });
