@@ -6,6 +6,7 @@ import { Effect, Layer, Redacted, Scope } from "effect";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { CommentRepoLive } from "../repositories/comment-repo-pg.js";
+import { TokenRepoLive } from "../repositories/token-repo-pg.js";
 import { CommentServiceLive } from "../services/comment-service.js";
 
 const TestSqlLive = PgClient.layer({
@@ -23,10 +24,10 @@ const TestMigratorLive = PgMigrator.layer({
 	schemaDirectory: "src/migrations",
 }).pipe(Layer.provide(TestSqlLive));
 
-const TestMainLive = CommentServiceLive.pipe(
-	Layer.provide(CommentRepoLive),
-	Layer.provide(TestSqlLive),
-);
+const TestMainLive = Layer.mergeAll(
+	CommentServiceLive.pipe(Layer.provide(CommentRepoLive)),
+	TokenRepoLive,
+).pipe(Layer.provide(TestSqlLive));
 
 const TestEnvLive = Layer.mergeAll(TestMainLive, TestMigratorLive).pipe(
 	Layer.provide(NodeContext.layer),

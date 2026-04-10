@@ -6,6 +6,7 @@ import { Config, Effect, Layer } from "effect";
 import { createApp } from "./app.js";
 import { AppConfig } from "./config.js";
 import { CommentRepoLive } from "./repositories/comment-repo-pg.js";
+import { TokenRepoLive } from "./repositories/token-repo-pg.js";
 import { CommentServiceLive } from "./services/comment-service.js";
 
 const SqlLive = PgClient.layerConfig({
@@ -23,10 +24,10 @@ const MigratorLive = PgMigrator.layer({
 	schemaDirectory: "src/migrations",
 }).pipe(Layer.provide(SqlLive));
 
-const MainLive = CommentServiceLive.pipe(
-	Layer.provide(CommentRepoLive),
-	Layer.provide(SqlLive),
-);
+const MainLive = Layer.mergeAll(
+	CommentServiceLive.pipe(Layer.provide(CommentRepoLive)),
+	TokenRepoLive,
+).pipe(Layer.provide(SqlLive));
 
 const program = Effect.gen(function* () {
 	const config = yield* AppConfig;
