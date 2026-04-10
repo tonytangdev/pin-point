@@ -44,6 +44,7 @@ const CommentRepoStub = Layer.succeed(CommentRepository, {
 	findByUrl: () => Effect.succeed([]),
 	deleteById: () => Effect.succeed(false),
 	updateById: () => Effect.succeed(null),
+	deleteOlderThan: () => Effect.succeed(0),
 });
 
 const ADMIN = { "X-Pin-Admin": "test-admin-secret" };

@@ -21,6 +21,9 @@ export class CommentService extends Context.Tag("CommentService")<
 			id: string,
 			content: string,
 		) => Effect.Effect<PinComment, CommentNotFound | DatabaseError>;
+		readonly deleteOlderThan: (
+			days: number,
+		) => Effect.Effect<number, DatabaseError>;
 	}
 >() {}
 
@@ -59,6 +62,8 @@ export const CommentServiceLive = Layer.effect(
 					if (!updated) return yield* Effect.fail(new CommentNotFound({ id }));
 					return updated;
 				}),
+
+			deleteOlderThan: (days: number) => repo.deleteOlderThan(days),
 		};
 	}),
 );

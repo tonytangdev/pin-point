@@ -29,6 +29,7 @@ const CommentRepoTest = Layer.succeed(CommentRepository, {
 	deleteById: (id) => Effect.succeed(id === "test-id"),
 	updateById: (id, content) =>
 		Effect.succeed(id === "test-id" ? { ...testComment, content } : null),
+	deleteOlderThan: () => Effect.succeed(0),
 });
 
 const TestLive = CommentServiceLive.pipe(Layer.provide(CommentRepoTest));

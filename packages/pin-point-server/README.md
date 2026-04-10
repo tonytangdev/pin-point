@@ -107,7 +107,7 @@ All via environment variables:
 | `CORS_ORIGIN` | `*` | Allowed CORS origin(s) |
 | `ADMIN_SECRET` | _(required)_ | Shared secret for admin endpoints. Sent via `X-Pin-Admin` header to mint share-link tokens and perform admin operations. |
 | `PIN_DEFAULT_TOKEN_TTL_HOURS` | _(unlimited)_ | Default TTL (in hours) applied to newly minted share-link tokens when the caller omits `expiresInHours`. Unset = tokens never expire by default. |
-| `PIN_COMMENT_RETENTION_DAYS` | _(unlimited)_ | Reserved for future use: intended retention window (in days) for comments. Not yet enforced by the server. |
+| `PIN_COMMENT_RETENTION_DAYS` | _(unlimited)_ | When set, comments older than this many days are deleted on server startup and every 6 hours. Unset = unlimited retention. |
 
 ## License
 

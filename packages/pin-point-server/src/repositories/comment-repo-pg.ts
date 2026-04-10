@@ -88,6 +88,18 @@ export const CommentRepoLive = Layer.effect(
 				}).pipe(
 					Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e }))),
 				),
+
+			deleteOlderThan: (days: number) =>
+				Effect.gen(function* () {
+					const result = yield* sql`
+						DELETE FROM comments
+						WHERE created_at < NOW() - INTERVAL '1 day' * ${days}
+						RETURNING id
+					`;
+					return result.length;
+				}).pipe(
+					Effect.catchAll((e) => Effect.fail(new DatabaseError({ cause: e }))),
+				),
 		};
 	}),
 );

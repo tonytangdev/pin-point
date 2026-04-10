@@ -17,5 +17,8 @@ export class CommentRepository extends Context.Tag("CommentRepository")<
 			id: string,
 			content: string,
 		) => Effect.Effect<PinComment | null, DatabaseError>;
+		readonly deleteOlderThan: (
+			days: number,
+		) => Effect.Effect<number, DatabaseError>;
 	}
 >() {}
