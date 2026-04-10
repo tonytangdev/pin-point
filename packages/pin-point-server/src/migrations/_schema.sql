@@ -1,4 +1,4 @@
-\restrict 4HZnLc71iXA6HdhYh0qpIwlHE67dldZZfNZJ7qiPbXBlNwUsqJ0Oz8ABgUqSEiP
+\restrict gkthbSvqIt3WaVKOfIRjAYESzhxfcig2myckNGbzcbtbQdIgDeCPzPaRyiwqdmc
 
 CREATE TABLE public.comments (
     id text NOT NULL,
@@ -6,7 +6,10 @@ CREATE TABLE public.comments (
     content text NOT NULL,
     anchor jsonb NOT NULL,
     viewport jsonb NOT NULL,
-    created_at timestamp with time zone NOT NULL
+    created_at timestamp with time zone NOT NULL,
+    token_id text,
+    author_name text,
+    author_id text
 );
 
 CREATE TABLE public.effect_sql_migrations (
@@ -15,18 +18,32 @@ CREATE TABLE public.effect_sql_migrations (
     name text NOT NULL
 );
 
+CREATE TABLE public.tokens (
+    id text NOT NULL,
+    label text,
+    created_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone,
+    revoked_at timestamp with time zone
+);
+
 ALTER TABLE ONLY public.comments
     ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.effect_sql_migrations
     ADD CONSTRAINT effect_sql_migrations_pkey PRIMARY KEY (migration_id);
 
+ALTER TABLE ONLY public.tokens
+    ADD CONSTRAINT tokens_pkey PRIMARY KEY (id);
+
 CREATE INDEX idx_comments_url ON public.comments USING btree (url);
 
-\unrestrict 4HZnLc71iXA6HdhYh0qpIwlHE67dldZZfNZJ7qiPbXBlNwUsqJ0Oz8ABgUqSEiP
+CREATE INDEX idx_tokens_active ON public.tokens USING btree (id) WHERE (revoked_at IS NULL);
 
-\restrict cXBUHkDVgdXr4EsEFjLt5w9CHuWSvaSuU8RcFno6hIYoU71ARyHohJrJyckPHxo
+\unrestrict gkthbSvqIt3WaVKOfIRjAYESzhxfcig2myckNGbzcbtbQdIgDeCPzPaRyiwqdmc
 
-INSERT INTO public.effect_sql_migrations (migration_id, created_at, name) VALUES (1, '2026-04-08 21:48:02.566372+00', 'create_comments');
+\restrict 5iZOAUPgdranEpZMMVfs8xjAkenBzYOqSp55ry3oGlRlLEWmN0atUn56IfcTz5E
 
-\unrestrict cXBUHkDVgdXr4EsEFjLt5w9CHuWSvaSuU8RcFno6hIYoU71ARyHohJrJyckPHxo
+INSERT INTO public.effect_sql_migrations (migration_id, created_at, name) VALUES (1, '2026-04-08 21:46:48.00383+00', 'create_comments');
+INSERT INTO public.effect_sql_migrations (migration_id, created_at, name) VALUES (2, '2026-04-10 14:39:20.513996+00', 'add_auth');
+
+\unrestrict 5iZOAUPgdranEpZMMVfs8xjAkenBzYOqSp55ry3oGlRlLEWmN0atUn56IfcTz5E
