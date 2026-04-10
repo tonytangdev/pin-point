@@ -11,6 +11,40 @@ type FeedbackToolbarProps = {
 	error?: string;
 };
 
+const CommentIcon = () => (
+	<svg
+		aria-hidden="true"
+		width="16"
+		height="16"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
+		<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+	</svg>
+);
+
+const KeyIcon = () => (
+	<svg
+		aria-hidden="true"
+		width="16"
+		height="16"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
+		<path d="m21 2-9.6 9.6" />
+		<circle cx="7.5" cy="15.5" r="5.5" />
+		<path d="m15.5 7.5 3 3" />
+	</svg>
+);
+
 export function FeedbackToolbar({
 	auth,
 	commentCount,
@@ -26,6 +60,7 @@ export function FeedbackToolbar({
 		: pinModeActive
 			? "Exit pin mode"
 			: "Leave feedback";
+	const showAdminKey = auth.role !== "tokenHolder";
 
 	return (
 		<div className="pp-toolbar">
@@ -39,17 +74,19 @@ export function FeedbackToolbar({
 				aria-label="Leave feedback"
 				title={commentTitle}
 			>
-				<span aria-hidden="true">💬</span>
+				<CommentIcon />
 			</button>
-			<button
-				type="button"
-				className="pp-toolbar-btn"
-				onClick={onAdminKeyOpen}
-				aria-label="Enter admin key"
-				title="Enter admin key"
-			>
-				<span aria-hidden="true">🔑</span>
-			</button>
+			{showAdminKey && (
+				<button
+					type="button"
+					className="pp-toolbar-btn"
+					onClick={onAdminKeyOpen}
+					aria-label="Enter admin key"
+					title="Enter admin key"
+				>
+					<KeyIcon />
+				</button>
+			)}
 			{shareButton}
 			{error ? (
 				<span className="pp-toolbar-error">{error}</span>

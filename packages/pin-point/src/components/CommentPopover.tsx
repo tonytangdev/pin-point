@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import type React from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type ReadProps = {
 	mode: "read";
@@ -26,14 +27,73 @@ type CreateProps = {
 
 type CommentPopoverProps = ReadProps | CreateProps;
 
+type Placement = { x: "right" | "left"; y: "bottom" | "top" };
+
+const POPOVER_OFFSET = 14;
+const VIEWPORT_MARGIN = 8;
+
 export function CommentPopover(props: CommentPopoverProps) {
 	const { mode, top, left } = props;
+	const popoverRef = useRef<HTMLDivElement>(null);
+	const [placement, setPlacement] = useState<Placement>({
+		x: "right",
+		y: "bottom",
+	});
+	const [size, setSize] = useState<{ width: number; height: number } | null>(
+		null,
+	);
+
+	useLayoutEffect(() => {
+		const el = popoverRef.current;
+		if (!el) return;
+		const rect = el.getBoundingClientRect();
+		const w = rect.width;
+		const h = rect.height;
+
+		const pinViewX = left - window.scrollX;
+		const pinViewY = top - window.scrollY;
+
+		const fitsRight =
+			pinViewX - POPOVER_OFFSET + w + VIEWPORT_MARGIN <= window.innerWidth;
+		const fitsLeft = pinViewX + POPOVER_OFFSET - w - VIEWPORT_MARGIN >= 0;
+		const fitsBottom =
+			pinViewY + POPOVER_OFFSET + h + VIEWPORT_MARGIN <= window.innerHeight;
+		const fitsTop = pinViewY - POPOVER_OFFSET - h - VIEWPORT_MARGIN >= 0;
+
+		setPlacement({
+			x: fitsRight ? "right" : fitsLeft ? "left" : "right",
+			y: fitsBottom ? "bottom" : fitsTop ? "top" : "bottom",
+		});
+		setSize({ width: w, height: h });
+	}, [top, left]);
+
+	const style: React.CSSProperties = size
+		? {
+				top: `${
+					placement.y === "bottom"
+						? top + POPOVER_OFFSET
+						: top - POPOVER_OFFSET - size.height
+				}px`,
+				left: `${
+					placement.x === "right"
+						? left - POPOVER_OFFSET
+						: left + POPOVER_OFFSET - size.width
+				}px`,
+			}
+		: {
+				top: `${top + POPOVER_OFFSET}px`,
+				left: `${left - POPOVER_OFFSET}px`,
+				visibility: "hidden",
+			};
 
 	return (
 		// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation only, not interactive
 		<div
+			ref={popoverRef}
 			className="pp-popover"
-			style={{ top: `${top + 14}px`, left: `${left}px` }}
+			data-placement-x={placement.x}
+			data-placement-y={placement.y}
+			style={style}
 			onClick={(e) => e.stopPropagation()}
 			role="dialog"
 		>
