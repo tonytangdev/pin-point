@@ -30,6 +30,20 @@ describe("FeedbackToolbar", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("tokenHolder: admin key button hidden", () => {
+		render(<FeedbackToolbar {...baseProps} auth={tokenHolder} />);
+		expect(
+			screen.queryByRole("button", { name: "Enter admin key" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("anonymous: admin key button visible", () => {
+		render(<FeedbackToolbar {...baseProps} auth={anonymous} />);
+		expect(
+			screen.getByRole("button", { name: "Enter admin key" }),
+		).toBeInTheDocument();
+	});
+
 	it("admin: share button rendered from prop", () => {
 		render(
 			<FeedbackToolbar
