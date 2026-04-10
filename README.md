@@ -7,7 +7,7 @@ Visual feedback overlay for web apps. Drop pins on any page, leave comments, per
 | Package | Description |
 |---------|-------------|
 | [pin-point](./packages/pin-point) | React component — feedback overlay with pins and comments |
-| [pin-point-server](./packages/pin-point-server) | Standalone backend — stores comments in SQLite, zero config |
+| [pin-point-server](./packages/pin-point-server) | Standalone backend — Postgres-backed comment store |
 
 ## Quick Start
 
