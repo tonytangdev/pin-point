@@ -10,6 +10,7 @@ import { createApp } from "../app.js";
 import { CommentRepoLive } from "../repositories/comment-repo-pg.js";
 import { TokenRepoLive } from "../repositories/token-repo-pg.js";
 import { CommentServiceLive } from "../services/comment-service.js";
+import { TokenServiceLive } from "../services/token-service.js";
 
 const TestSqlLive = PgClient.layer({
 	database: "pinpoint_test",
@@ -28,6 +29,7 @@ const TestMigratorLive = PgMigrator.layer({
 
 const TestMainLive = Layer.mergeAll(
 	CommentServiceLive.pipe(Layer.provide(CommentRepoLive)),
+	TokenServiceLive.pipe(Layer.provide(TokenRepoLive)),
 	TokenRepoLive,
 ).pipe(Layer.provide(TestSqlLive));
 
