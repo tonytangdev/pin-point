@@ -582,7 +582,7 @@
 @media (max-width: 767.98px) {
 	[data-pin-point] .pp-popover {
 		position: fixed;
-		bottom: 0;
+		bottom: 80px;
 		left: 0;
 		top: auto;
 		width: 100%;
