@@ -1,6 +1,6 @@
 {
 	"name": "@tonytangdev/pin-point",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Visual feedback overlay for React — drop pins and leave comments on any page",
 	"main": "./dist/index.js",
 	"module": "./dist/index.mjs",
