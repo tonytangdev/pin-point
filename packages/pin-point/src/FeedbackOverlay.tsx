@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminKeyModal } from "./components/AdminKeyModal";
 import { ClickInterceptLayer } from "./components/ClickInterceptLayer";
-import { CommentPopover } from "./components/CommentPopover";
+import { CommentPopover, MOBILE_BREAKPOINT } from "./components/CommentPopover";
 import { FeedbackToolbar } from "./components/FeedbackToolbar";
 import { PinMarker } from "./components/PinMarker";
 import { ShareLinkButton } from "./components/ShareLinkButton";
@@ -136,7 +136,9 @@ export function FeedbackOverlay({
 	return (
 		<div data-pin-point="">
 			{children}
-			{pinMode && <ClickInterceptLayer onClick={handleClick} />}
+			{pinMode && !(pendingPin && window.innerWidth < MOBILE_BREAKPOINT) && (
+				<ClickInterceptLayer onClick={handleClick} />
+			)}
 
 			{comments.map((comment, index) => {
 				const pos = restorePosition(comment.anchor);
@@ -154,6 +156,19 @@ export function FeedbackOverlay({
 					/>
 				);
 			})}
+
+			{window.innerWidth < MOBILE_BREAKPOINT &&
+				(pendingPin || expandedPinId) && (
+					// biome-ignore lint/a11y/useKeyWithClickEvents: overlay dismiss, not interactive
+					// biome-ignore lint/a11y/noStaticElementInteractions: overlay dismiss, not interactive
+					<div
+						className="pp-mobile-overlay"
+						onClick={() => {
+							setPendingPin(null);
+							setExpandedPinId(null);
+						}}
+					/>
+				)}
 
 			{expandedPinId &&
 				(() => {

@@ -504,4 +504,207 @@ describe("FeedbackOverlay", () => {
 			expect(screen.getByText("Enter admin key")).toBeInTheDocument();
 		});
 	});
+
+	describe("mobile overlay", () => {
+		beforeEach(() => {
+			window.history.replaceState({}, "", "/?pin-token=ft_test");
+			Object.defineProperty(window, "innerWidth", {
+				value: 500,
+				configurable: true,
+			});
+			document.elementFromPoint = vi.fn().mockReturnValue(document.body);
+		});
+
+		afterEach(() => {
+			Object.defineProperty(window, "innerWidth", {
+				value: 1024,
+				configurable: true,
+			});
+			// @ts-expect-error reset jsdom stub
+			delete document.elementFromPoint;
+		});
+
+		it("renders mobile overlay when pending pin exists on narrow viewport", async () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			enterPinMode();
+
+			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+			await waitFor(() => {
+				expect(
+					document.querySelector(".pp-mobile-overlay"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("does not render mobile overlay on wide viewport", async () => {
+			Object.defineProperty(window, "innerWidth", {
+				value: 1024,
+				configurable: true,
+			});
+
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			enterPinMode();
+
+			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+			await waitFor(() => {
+				expect(
+					screen.getByPlaceholderText("Leave your feedback..."),
+				).toBeInTheDocument();
+			});
+
+			expect(
+				document.querySelector(".pp-mobile-overlay"),
+			).not.toBeInTheDocument();
+		});
+
+		it("clicking mobile overlay cancels pending pin", async () => {
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => []}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			enterPinMode();
+
+			const intercept = document.querySelector(".pp-intercept") as HTMLElement;
+			fireEvent.click(intercept, { clientX: 100, clientY: 200 });
+
+			await waitFor(() => {
+				expect(
+					document.querySelector(".pp-mobile-overlay"),
+				).toBeInTheDocument();
+			});
+
+			fireEvent.click(
+				document.querySelector(".pp-mobile-overlay") as HTMLElement,
+			);
+
+			await waitFor(() => {
+				expect(
+					screen.queryByPlaceholderText("Leave your feedback..."),
+				).not.toBeInTheDocument();
+				expect(
+					document.querySelector(".pp-mobile-overlay"),
+				).not.toBeInTheDocument();
+			});
+		});
+
+		it("renders mobile overlay when pin is expanded on narrow viewport", async () => {
+			const target = document.createElement("div");
+			target.id = "test";
+			document.body.appendChild(target);
+
+			vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+				top: 100,
+				left: 100,
+				width: 200,
+				height: 50,
+				bottom: 150,
+				right: 300,
+				x: 100,
+				y: 100,
+				toJSON: () => {},
+			} as DOMRect);
+
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => [mockComment]}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			let pinMarker!: HTMLElement;
+			await waitFor(() => {
+				pinMarker = document.querySelector(".pp-pin") as HTMLElement;
+				expect(pinMarker).toBeInTheDocument();
+			});
+
+			fireEvent.click(pinMarker);
+
+			await waitFor(() => {
+				expect(
+					document.querySelector(".pp-mobile-overlay"),
+				).toBeInTheDocument();
+			});
+
+			target.remove();
+		});
+
+		it("clicking overlay collapses expanded pin", async () => {
+			const target = document.createElement("div");
+			target.id = "test";
+			document.body.appendChild(target);
+
+			vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+				top: 100,
+				left: 100,
+				width: 200,
+				height: 50,
+				bottom: 150,
+				right: 300,
+				x: 100,
+				y: 100,
+				toJSON: () => {},
+			} as DOMRect);
+
+			render(
+				<FeedbackOverlay
+					onCommentCreate={async () => {}}
+					onCommentsFetch={async () => [mockComment]}
+				>
+					<div>My App</div>
+				</FeedbackOverlay>,
+			);
+
+			let pinMarker!: HTMLElement;
+			await waitFor(() => {
+				pinMarker = document.querySelector(".pp-pin") as HTMLElement;
+				expect(pinMarker).toBeInTheDocument();
+			});
+
+			fireEvent.click(pinMarker);
+
+			await waitFor(() => {
+				expect(screen.getByText("Fix this heading")).toBeInTheDocument();
+			});
+
+			fireEvent.click(
+				document.querySelector(".pp-mobile-overlay") as HTMLElement,
+			);
+
+			await waitFor(() => {
+				expect(screen.queryByText("Fix this heading")).not.toBeInTheDocument();
+				expect(
+					document.querySelector(".pp-mobile-overlay"),
+				).not.toBeInTheDocument();
+			});
+
+			target.remove();
+		});
+	});
 });
