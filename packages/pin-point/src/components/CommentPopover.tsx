@@ -47,7 +47,7 @@ function useScrollIntoViewOnKeyboard(
 				baselineHeight - viewport.height > KEYBOARD_HEIGHT_THRESHOLD &&
 				ref.current
 			) {
-				ref.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+				ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
 			}
 		};
 

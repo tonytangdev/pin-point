@@ -386,7 +386,7 @@ describe("CommentPopover — mobile keyboard scroll", () => {
 
 		expect(popover.scrollIntoView).toHaveBeenCalledWith({
 			behavior: "smooth",
-			block: "nearest",
+			block: "center",
 		});
 	});
 
