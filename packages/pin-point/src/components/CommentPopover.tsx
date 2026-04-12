@@ -31,6 +31,30 @@ type Placement = { x: "right" | "left"; y: "bottom" | "top" };
 
 const POPOVER_OFFSET = 14;
 const VIEWPORT_MARGIN = 8;
+const KEYBOARD_HEIGHT_THRESHOLD = 150;
+
+function useScrollIntoViewOnKeyboard(
+	ref: React.RefObject<HTMLDivElement | null>,
+) {
+	useEffect(() => {
+		const viewport = window.visualViewport;
+		if (!viewport) return;
+
+		const baselineHeight = viewport.height;
+
+		const handleResize = () => {
+			if (
+				baselineHeight - viewport.height > KEYBOARD_HEIGHT_THRESHOLD &&
+				ref.current
+			) {
+				ref.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+			}
+		};
+
+		viewport.addEventListener("resize", handleResize);
+		return () => viewport.removeEventListener("resize", handleResize);
+	}, [ref]);
+}
 
 export function CommentPopover(props: CommentPopoverProps) {
 	const { mode, top, left } = props;
@@ -66,6 +90,8 @@ export function CommentPopover(props: CommentPopoverProps) {
 		});
 		setSize({ width: w, height: h });
 	}, [top, left]);
+
+	useScrollIntoViewOnKeyboard(popoverRef);
 
 	const style: React.CSSProperties = size
 		? {
