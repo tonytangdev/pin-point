@@ -354,6 +354,10 @@ describe("CommentPopover — read mode edit", () => {
 describe("CommentPopover — mobile keyboard scroll", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
+		Object.defineProperty(window, "innerWidth", {
+			value: 1024,
+			configurable: true,
+		});
 	});
 
 	it("scrolls popover into view when visualViewport height shrinks past threshold", () => {
@@ -439,5 +443,91 @@ describe("CommentPopover — mobile keyboard scroll", () => {
 		for (const handler of resizeHandlers) handler();
 
 		expect(popover.scrollIntoView).not.toHaveBeenCalled();
+	});
+
+	it("does not scroll when viewport width is below mobile breakpoint", () => {
+		const resizeHandlers: Array<() => void> = [];
+		const mockViewport = {
+			height: 800,
+			addEventListener: (_: string, handler: () => void) => {
+				resizeHandlers.push(handler);
+			},
+			removeEventListener: vi.fn(),
+		};
+		vi.stubGlobal("visualViewport", mockViewport);
+
+		Object.defineProperty(window, "innerWidth", {
+			value: 500,
+			configurable: true,
+		});
+
+		render(
+			<CommentPopover
+				mode="create"
+				top={100}
+				left={200}
+				onSubmit={async () => {}}
+				onCancel={() => {}}
+			/>,
+		);
+
+		const popover = document.querySelector(".pp-popover") as HTMLElement;
+		popover.scrollIntoView = vi.fn();
+
+		mockViewport.height = 400;
+		for (const handler of resizeHandlers) handler();
+
+		expect(popover.scrollIntoView).not.toHaveBeenCalled();
+	});
+});
+
+describe("CommentPopover — mobile sheet mode", () => {
+	afterEach(() => {
+		Object.defineProperty(window, "innerWidth", {
+			value: 1024,
+			configurable: true,
+		});
+	});
+
+	it("does not apply inline positioning on mobile", () => {
+		Object.defineProperty(window, "innerWidth", {
+			value: 500,
+			configurable: true,
+		});
+
+		render(
+			<CommentPopover
+				mode="create"
+				top={100}
+				left={200}
+				onSubmit={async () => {}}
+				onCancel={() => {}}
+			/>,
+		);
+
+		const popover = document.querySelector(".pp-popover") as HTMLElement;
+		expect(popover.style.top).toBe("");
+		expect(popover.style.left).toBe("");
+	});
+
+	it("applies inline positioning on desktop", () => {
+		Object.defineProperty(window, "innerWidth", {
+			value: 1024,
+			configurable: true,
+		});
+
+		render(
+			<CommentPopover
+				mode="create"
+				top={100}
+				left={200}
+				onSubmit={async () => {}}
+				onCancel={() => {}}
+			/>,
+		);
+
+		const popover = document.querySelector(".pp-popover") as HTMLElement;
+		expect(popover.style.top).not.toBe("");
+		expect(popover.style.left).not.toBe("");
 	});
 });

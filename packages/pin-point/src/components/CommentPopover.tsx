@@ -1,6 +1,8 @@
 import type React from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+export const MOBILE_BREAKPOINT = 768;
+
 type ReadProps = {
 	mode: "read";
 	content: string;
@@ -37,6 +39,7 @@ function useScrollIntoViewOnKeyboard(
 	ref: React.RefObject<HTMLDivElement | null>,
 ) {
 	useEffect(() => {
+		if (window.innerWidth < MOBILE_BREAKPOINT) return;
 		const viewport = window.visualViewport;
 		if (!viewport) return;
 
@@ -68,6 +71,7 @@ export function CommentPopover(props: CommentPopoverProps) {
 	);
 
 	useLayoutEffect(() => {
+		if (window.innerWidth < MOBILE_BREAKPOINT) return;
 		const el = popoverRef.current;
 		if (!el) return;
 		const rect = el.getBoundingClientRect();
@@ -93,24 +97,29 @@ export function CommentPopover(props: CommentPopoverProps) {
 
 	useScrollIntoViewOnKeyboard(popoverRef);
 
-	const style: React.CSSProperties = size
-		? {
-				top: `${
-					placement.y === "bottom"
-						? top + POPOVER_OFFSET
-						: top - POPOVER_OFFSET - size.height
-				}px`,
-				left: `${
-					placement.x === "right"
-						? left - POPOVER_OFFSET
-						: left + POPOVER_OFFSET - size.width
-				}px`,
-			}
-		: {
-				top: `${top + POPOVER_OFFSET}px`,
-				left: `${left - POPOVER_OFFSET}px`,
-				visibility: "hidden",
-			};
+	const isMobile =
+		typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT;
+
+	const style: React.CSSProperties = isMobile
+		? {}
+		: size
+			? {
+					top: `${
+						placement.y === "bottom"
+							? top + POPOVER_OFFSET
+							: top - POPOVER_OFFSET - size.height
+					}px`,
+					left: `${
+						placement.x === "right"
+							? left - POPOVER_OFFSET
+							: left + POPOVER_OFFSET - size.width
+					}px`,
+				}
+			: {
+					top: `${top + POPOVER_OFFSET}px`,
+					left: `${left - POPOVER_OFFSET}px`,
+					visibility: "hidden",
+				};
 
 	return (
 		// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation only, not interactive
