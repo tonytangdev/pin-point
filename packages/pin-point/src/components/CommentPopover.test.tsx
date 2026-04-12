@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CommentPopover } from "./CommentPopover";
 
 describe("CommentPopover — read mode", () => {
@@ -348,5 +348,96 @@ describe("CommentPopover — read mode edit", () => {
 		expect(screen.getByText("Fix the heading")).toBeInTheDocument();
 		expect(screen.queryByDisplayValue("Changed")).not.toBeInTheDocument();
 		expect(screen.getByLabelText("Edit")).toBeInTheDocument();
+	});
+});
+
+describe("CommentPopover — mobile keyboard scroll", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("scrolls popover into view when visualViewport height shrinks past threshold", () => {
+		const resizeHandlers: Array<() => void> = [];
+		const mockViewport = {
+			height: 800,
+			addEventListener: (_: string, handler: () => void) => {
+				resizeHandlers.push(handler);
+			},
+			removeEventListener: vi.fn(),
+		};
+		vi.stubGlobal("visualViewport", mockViewport);
+
+		render(
+			<CommentPopover
+				mode="create"
+				top={100}
+				left={200}
+				onSubmit={async () => {}}
+				onCancel={() => {}}
+			/>,
+		);
+
+		const popover = document.querySelector(".pp-popover") as HTMLElement;
+		popover.scrollIntoView = vi.fn();
+
+		// Simulate keyboard opening — height shrinks by >150px
+		mockViewport.height = 400;
+		for (const handler of resizeHandlers) handler();
+
+		expect(popover.scrollIntoView).toHaveBeenCalledWith({
+			behavior: "smooth",
+			block: "nearest",
+		});
+	});
+
+	it("does not scroll when visualViewport is unavailable", () => {
+		vi.stubGlobal("visualViewport", undefined);
+
+		render(
+			<CommentPopover
+				mode="create"
+				top={100}
+				left={200}
+				onSubmit={async () => {}}
+				onCancel={() => {}}
+			/>,
+		);
+
+		const popover = document.querySelector(".pp-popover") as HTMLElement;
+		popover.scrollIntoView = vi.fn();
+
+		// No crash, no scroll
+		expect(popover.scrollIntoView).not.toHaveBeenCalled();
+	});
+
+	it("does not scroll when height shrinks less than threshold", () => {
+		const resizeHandlers: Array<() => void> = [];
+		const mockViewport = {
+			height: 800,
+			addEventListener: (_: string, handler: () => void) => {
+				resizeHandlers.push(handler);
+			},
+			removeEventListener: vi.fn(),
+		};
+		vi.stubGlobal("visualViewport", mockViewport);
+
+		render(
+			<CommentPopover
+				mode="create"
+				top={100}
+				left={200}
+				onSubmit={async () => {}}
+				onCancel={() => {}}
+			/>,
+		);
+
+		const popover = document.querySelector(".pp-popover") as HTMLElement;
+		popover.scrollIntoView = vi.fn();
+
+		// Shrink by only 100px — below 150px threshold
+		mockViewport.height = 700;
+		for (const handler of resizeHandlers) handler();
+
+		expect(popover.scrollIntoView).not.toHaveBeenCalled();
 	});
 });
